@@ -1,12 +1,8 @@
 import flet
 import datetime
-import time
-import speech_recognition as sr
-import pyaudio
 import asyncio
-import json
 import switchbot
-import wit
+import voice_control
 import os
 devices=switchbot.devices
 scenes=switchbot.scenes
@@ -23,63 +19,28 @@ def main(page:flet.Page):
             nowtime.value =datetime.datetime.now().strftime("%Y/%m/%d\n%H:%M:%S")
             page.update()
             await asyncio.sleep(1)
-    
-    def voice(e):
-        page.go("/voice")
-        talk_text.value="聞き取り中"
-        page.update()
-        r=sr.Recognizer()
-        with sr.Microphone()as source:
-            print("聞き取り")
-            data=r.listen(source)
-            text=json.load(r.recognize_vosk(data))
-            talk_text.value=text["text"]
-            if text["text"]!="":
-                control(text["text"])
-                page.update()
-            page.update()
-        time.sleep(10)
-        page.go("/")
-    async def control(name):
-        action=None
-        for i in devices["body"]["infraredRemoteList"]:
-            if i["deviceName"] in name:
-                client=wit.Wit(os.getenv("WIT_TOKEN"))
-                r=client.message(name)
-                if r['intents']:action=r['intents'][0]["name"]
-                print(action)
-                if action:switchbot.commands(i["deviceName"],action)
-                return
-        for i in scenes["body"]:
-            if i["sceneName"] in name:
-                switchbot.scene(i["sceneName"])
-                return
+
     async def back():
         await asyncio.sleep(5)
         page.go("/")
     async def always_on_voice():
-        
+        asyncio.create_task(voice_control.always_on_voice())
+        text=""
         while True:
-            
-            r=sr.Recognizer()
-            with sr.Microphone()as source:
-                print("聞き取り")
-                r.adjust_for_ambient_noise(source)
-                data=await asyncio.to_thread(r.listen,source)
-                text=json.loads(await asyncio.to_thread(r.recognize_vosk,data,"ja"))
-                if text["text"]!="":
-                    await control(text["text"])
+                if voice_control.last_text!=text:
                     page.go("/voice")
-                    talk_text.value=text["text"]
+                    talk_text.value=voice_control.last_text
+                    text=voice_control.last_text
                     page.update()
                     task=asyncio.create_task(back())
+                await asyncio.sleep(1)
     def route(e):
         page.views.clear()
 
         if page.route=="/":
             talk_text.value=""
             page.views.append(flet.View("/",[flet.ElevatedButton("テストページへ移動", on_click=test),
-                                            flet.Row([flet.TextButton("音声認識",on_click=voice)]),
+                                            flet.Row([flet.TextButton("音声認識")]),
                                             flet.Container(content=nowtime,expand=True,alignment=flet.alignment.center,on_click=menu)
 
                                             ],))
