@@ -6,6 +6,8 @@ import pyaudio
 import asyncio
 import json
 import switchbot
+import wit
+import os
 devices=switchbot.devices
 scenes=switchbot.scenes
 def main(page:flet.Page):
@@ -42,12 +44,12 @@ def main(page:flet.Page):
         action=None
         for i in devices["body"]["infraredRemoteList"]:
             if i["deviceName"] in name:
-                if "つけ" in name :action="turnOn"
-                if "決し" in name:action="turnOff"
+                client=wit.Wit(os.getenv("WIT_TOKEN"))
+                r=client.message(name)
+                if r['intents']:action=r['intents'][0]["name"]
                 print(action)
                 if action:switchbot.commands(i["deviceName"],action)
                 return
-            pass
         for i in scenes["body"]:
             if i["sceneName"] in name:
                 switchbot.scene(i["sceneName"])
