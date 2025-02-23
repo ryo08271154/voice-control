@@ -4,8 +4,10 @@ import wit
 import asyncio
 import speech_recognition as sr
 import json
+import subprocess
 devices=switchbot.devices
 scenes=switchbot.scenes
+custom_scenes=json.load(open("./custom_scenes.json"))
 last_text=""
 async def always_on_voice():
     global last_text
@@ -21,19 +23,24 @@ async def always_on_voice():
                 await control(text)
                 last_text=text
                 
-async def control(name):
+async def control(text):
     action=None
-    name=name.replace(" ","")
+    text=text.replace(" ","")
+    for i in custom_scenes["sceneList"]:
+        if i["sceneName"] in text:
+            command=i["command"].split(" ")
+            subprocess.run(command)
+            return
     for i in devices["body"]["infraredRemoteList"]:
-        if i["deviceName"] in name:
+        if i["deviceName"] in text:
             client=wit.Wit(os.getenv("WIT_TOKEN"))
-            r=client.message(name)
+            r=client.message(text)
             if r['intents']:action=r['intents'][0]["name"]
             print(action)
             if action:switchbot.commands(i["deviceName"],action)
             return
     for i in scenes["body"]:
-        if i["sceneName"] in name:
+        if i["sceneName"] in text:
             switchbot.scene(i["sceneName"])
             return
 if __name__=="__main__":
