@@ -9,6 +9,7 @@ import json
 import subprocess
 import threading
 import requests
+import datetime
 devices=switchbot.devices
 scenes=switchbot.scenes
 custom_scenes=json.load(open("custom_scenes.json"))
@@ -47,10 +48,17 @@ def control(text):
         action=None
         client=wit.Wit(os.getenv("WIT_TOKEN"))
         r=client.message(text)
-        if r['intents']:action=r['intents'][0]["name"]
+        if r['intents'] and r['entities']:
+            if r['intents'][0]['name']=='turnOn' or 'turnOff':
+                action=r['intents'][0]["name"]
+            if r['intents'][0]['name']=='weather':
+                action=datetime.datetime.fromisoformat(r["entities"]["wit$datetime:datetime"][0]["value"])
+                print(action)
         return action
     if "天気" in text:
-        weather()
+        action=judge()
+        if action:weather(action)
+        else:reply="いつの天気を教えてほしいかわかりませんでした"
         return
     for i in custom_devices["deviceList"]:
         if i["deviceName"] in text:
@@ -89,13 +97,24 @@ def control(text):
             switchbot.scene(i["sceneName"])
             return
     reply="よくわかりませんでした"
-def weather():
+def weather(date):
     global reply
     api_key=os.getenv("OPENWEATHER_APIKEY")
     location=os.getenv("OPENWEATHER")
-    weather_json=requests.get(f"https://api.openweathermap.org/data/2.5/weather?{location}&lang=ja&appid={api_key}").json()
-    print("現在の天気は",weather_json['weather'][0]["description"])
-    reply=f"現在の天気は{weather_json['weather'][0]['description']}"
+    tenki=""
+    if datetime.datetime.now().day==date.day:
+        weather_json=requests.get(f"https://api.openweathermap.org/data/2.5/weather?{location}&lang=ja&appid={api_key}").json()
+        tenki=weather_json["weather"][0]["description"]
+    else:
+        weather_json=requests.get(f"https://api.openweathermap.org/data/2.5/forecast?{location}&lang=ja&appid={api_key}").json()
+        get_date=datetime.datetime.strftime(date,"%Y-%m-%d 12:00:00")
+        for i in range(1,len(weather_json["list"])):
+            if weather_json["list"][i]["dt_txt"]==get_date:
+                print(weather_json["list"][i]["weather"][0])
+                tenki=weather_json["list"][i]["weather"][0]["description"]
+                break
+    print("天気は",tenki)
+    reply=f"天気は{tenki}です"
     return weather_json
 if __name__=="__main__":
     asyncio.run(always_on_voice())
