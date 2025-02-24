@@ -8,10 +8,13 @@ import pyaudio
 import json
 import subprocess
 import threading
+import requests
 devices=switchbot.devices
 scenes=switchbot.scenes
-custom_scenes=json.load(open("./custom_scenes.json"))
+custom_scenes=json.load(open("custom_scenes.json"))
+custom_devices=json.load(open("custom_devices.json"))
 last_text=""
+reply=""
 def always_on_voice():
     global last_text
     model = vosk.Model("model")
@@ -37,25 +40,62 @@ def always_on_voice():
             exit()
                 
 def control(text):
-    action=None
+    global reply
+    reply=""
     text=text.replace(" ","")
+    def judge():
+        action=None
+        client=wit.Wit(os.getenv("WIT_TOKEN"))
+        r=client.message(text)
+        if r['intents']:action=r['intents'][0]["name"]
+        return action
+    if "天気" in text:
+        weather()
+        return
+    for i in custom_devices["deviceList"]:
+        if i["deviceName"] in text:
+            action=judge()
+            if action:
+                command=i[action].split(" ")
+                if action=="turnOn":reply=f"{i['deviceName']}をオンにします"
+                else:reply=f"{i['deviceName']}をオフにします"
+                print("カスタムデバイス:",command)
+                subprocess.run(command)
+            else:
+                print("わかりませんでした")
+                reply="なにをするかわかりませんでした"
+            return
     for i in custom_scenes["sceneList"]:
         if i["sceneName"] in text:
             command=i["command"].split(" ")
-            print("カスタム")
+            reply=f"{i['sceneName']}を実行します"
+            print("カスタムシーン:",command)
             subprocess.run(command)
             return
     for i in devices["body"]["infraredRemoteList"]:
         if i["deviceName"] in text:
-            client=wit.Wit(os.getenv("WIT_TOKEN"))
-            r=client.message(text)
-            if r['intents']:action=r['intents'][0]["name"]
+            action=judge()
+            if action=="turnOn":reply=f"{i['deviceName']}をオンにします"
+            else:reply=f"{i['deviceName']}をオフにします"
             print(action)
-            if action:switchbot.commands(i["deviceName"],action)
+            if action:
+                switchbot.commands(i["deviceName"],action)
+            else:
+                reply="なにをするかわかりませんでした"
             return
     for i in scenes["body"]:
         if i["sceneName"] in text:
+            reply=f"{i['sceneName']}を実行します"
             switchbot.scene(i["sceneName"])
             return
+    reply="よくわかりませんでした"
+def weather():
+    global reply
+    api_key=os.getenv("OPENWEATHER_APIKEY")
+    location=os.getenv("OPENWEATHER")
+    weather_json=requests.get(f"https://api.openweathermap.org/data/2.5/weather?{location}&lang=ja&appid={api_key}").json()
+    print("現在の天気は",weather_json['weather'][0]["description"])
+    reply=f"現在の天気は{weather_json['weather'][0]['description']}"
+    return weather_json
 if __name__=="__main__":
     asyncio.run(always_on_voice())

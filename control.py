@@ -12,9 +12,10 @@ def main(page:flet.Page):
         page.go("/menu")
         print("menu")
     page.theme_mode=flet.ThemeMode.DARK
-    page.title="test"
+    page.title="音声操作"
     nowtime = flet.Text(datetime.datetime.now().strftime("%Y/%m/%d\n%H:%M:%S"), size=100,text_align=flet.TextAlign.CENTER)
-    talk_text=flet.Text("", size=100,text_align=flet.TextAlign.CENTER)
+    talk_text=flet.Text("",size=50)
+    reply=flet.Text("", size=100,text_align=flet.TextAlign.CENTER)
     async def time_update():
         while True:
             nowtime.value =datetime.datetime.now().strftime("%Y/%m/%d\n%H:%M:%S")
@@ -24,13 +25,17 @@ def main(page:flet.Page):
     async def back():
         await asyncio.sleep(5)
         page.go("/")
+    async def voice():
+        try:
+            await asyncio.to_thread(voice_control.always_on_voice)
+        except:pass
     async def always_on_voice():
-        threading.Thread(target=voice_control.always_on_voice)
         text=""
         while True:
-                if voice_control.last_text!=text:
+                if voice_control.last_text!=text and voice_control.reply!="":
                     page.go("/voice")
                     talk_text.value=voice_control.last_text
+                    reply.value=voice_control.reply
                     text=voice_control.last_text
                     page.update()
                     task=asyncio.create_task(back())
@@ -39,9 +44,9 @@ def main(page:flet.Page):
         page.views.clear()
 
         if page.route=="/":
-            talk_text.value=""
+            reply.value=""
             page.views.append(flet.View("/",[flet.ElevatedButton("テストページへ移動", on_click=test),
-                                            flet.Row([flet.TextButton("音声認識")]),
+                                            flet.Row([flet.TextButton("音声認識",on_click=lambda e:page.go("/voice"))]),
                                             flet.Container(content=nowtime,expand=True,alignment=flet.alignment.center,on_click=menu)
 
                                             ],))
@@ -49,7 +54,8 @@ def main(page:flet.Page):
         if page.route=="/voice":
             
             page.views.append(flet.View("/voice",[flet.ElevatedButton("ホーム", on_click=lambda e:page.go("/")),
-                                flet.Container(content=talk_text,expand=True,alignment=flet.alignment.center)
+                                talk_text,
+                                flet.Container(content=reply,expand=True,alignment=flet.alignment.center)
 
                                 ],))
         if page.route=="/menu":
@@ -64,7 +70,7 @@ def main(page:flet.Page):
 
     page.run_task(time_update)
     page.run_task(always_on_voice)
-
+    page.run_task(voice)
     page.go(page.route)
 
 
