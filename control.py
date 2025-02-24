@@ -4,6 +4,7 @@ import asyncio
 import switchbot
 import voice_control
 import os
+import threading
 devices=switchbot.devices
 scenes=switchbot.scenes
 def main(page:flet.Page):
@@ -24,7 +25,7 @@ def main(page:flet.Page):
         await asyncio.sleep(5)
         page.go("/")
     async def always_on_voice():
-        asyncio.create_task(voice_control.always_on_voice())
+        threading.Thread(target=voice_control.always_on_voice)
         text=""
         while True:
                 if voice_control.last_text!=text:
