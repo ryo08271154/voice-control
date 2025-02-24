@@ -53,7 +53,6 @@ def control(text):
                 action=r['intents'][0]["name"]
             if r['intents'][0]['name']=='weather':
                 action=datetime.datetime.fromisoformat(r["entities"]["wit$datetime:datetime"][0]["value"])
-                print(action)
         return action
     if "天気" in text:
         action=judge()
@@ -110,11 +109,10 @@ def weather(date):
         get_date=datetime.datetime.strftime(date,"%Y-%m-%d 12:00:00")
         for i in range(1,len(weather_json["list"])):
             if weather_json["list"][i]["dt_txt"]==get_date:
-                print(weather_json["list"][i]["weather"][0])
                 tenki=weather_json["list"][i]["weather"][0]["description"]
                 break
-    print("天気は",tenki)
-    reply=f"天気は{tenki}です"
+    print(tenki,"です")
+    reply=f"{tenki}です"
     return weather_json
 if __name__=="__main__":
     asyncio.run(always_on_voice())
