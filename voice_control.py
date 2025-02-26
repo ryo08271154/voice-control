@@ -106,12 +106,12 @@ def weather(date):
         tenki=weather_json["weather"][0]["description"]
     else:
         weather_json=requests.get(f"https://api.openweathermap.org/data/2.5/forecast?{location}&lang=ja&appid={api_key}").json()
-        get_date=datetime.datetime.strftime(date,"%Y-%m-%d 12:00:00")
+        get_date=datetime.datetime.strftime(date,"%Y-%m-%d")
         for i in range(1,len(weather_json["list"])):
-            if weather_json["list"][i]["dt_txt"]==get_date:
-                print(float(weather_json["list"][i]["main"]["temp"])-273.15)
-                tenki=f'気温は{round((float(weather_json["list"][i]["main"]["temp"])-273.15),1)}℃{weather_json["list"][i]["weather"][0]["description"]}'
-                break
+            if weather_json["list"][i]["dt_txt"]==f"{get_date} 09:00:00":
+                tenki=f'９時の気温は{round((float(weather_json["list"][i]["main"]["temp"])-273.15),1)}℃ 天気は{weather_json["list"][i]["weather"][0]["description"]} '
+                tenki+=f'１２時の気温は{round((float(weather_json["list"][i+1]["main"]["temp"])-273.15),1)}℃ 天気は{weather_json["list"][i+1]["weather"][0]["description"]} '
+                tenki+=f'１５時の気温は{round((float(weather_json["list"][i+2]["main"]["temp"])-273.15),1)}℃ 天気は{weather_json["list"][i+2]["weather"][0]["description"]}'
     print(tenki,"です")
     reply=f"{tenki}です"
     return weather_json
