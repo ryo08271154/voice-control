@@ -18,7 +18,7 @@ last_text=""
 reply=""
 def always_on_voice():
     global last_text
-    model = vosk.Model("model")
+    model = vosk.Model("model_2")
     recognizer = vosk.KaldiRecognizer(model, 16000)
     # PyAudioの設定
     p = pyaudio.PyAudio()
@@ -51,14 +51,14 @@ def control(text):
         if r['intents'] and r['entities']:
             if r['intents'][0]['name']=='turnOn' or 'turnOff':
                 action=r['intents'][0]["name"]
-            if r['intents'][0]['name']=='weather':
+            if r['intents'][0]['name']=='weather' and r["entities"]:
                 action=datetime.datetime.fromisoformat(r["entities"]["wit$datetime:datetime"][0]["value"])
         return action
     if "天気" in text:
         action=judge()
         if action:weather(action)
         else:reply="いつの天気を教えてほしいかわかりませんでした"
-        return
+        return yomiage(reply)
     for i in custom_devices["deviceList"]:
         if i["deviceName"] in text:
             action=judge()
@@ -71,14 +71,14 @@ def control(text):
             else:
                 print("わかりませんでした")
                 reply="なにをするかわかりませんでした"
-            return
+            return yomiage(reply)
     for i in custom_scenes["sceneList"]:
         if i["sceneName"] in text:
             command=i["command"].split(" ")
             reply=f"{i['sceneName']}を実行します"
             print("カスタムシーン:",command)
             subprocess.run(command)
-            return
+            return yomiage(reply)
     for i in devices["body"]["infraredRemoteList"]:
         if i["deviceName"] in text:
             action=judge()
@@ -89,12 +89,12 @@ def control(text):
                 switchbot.commands(i["deviceName"],action)
             else:
                 reply="なにをするかわかりませんでした"
-            return
+            return yomiage(reply)
     for i in scenes["body"]:
         if i["sceneName"] in text:
             reply=f"{i['sceneName']}を実行します"
             switchbot.scene(i["sceneName"])
-            return
+            return yomiage(reply)
     reply="よくわかりませんでした"
 def weather(date):
     global reply
@@ -109,10 +109,14 @@ def weather(date):
         get_date=datetime.datetime.strftime(date,"%Y-%m-%d 12:00:00")
         for i in range(1,len(weather_json["list"])):
             if weather_json["list"][i]["dt_txt"]==get_date:
-                tenki=weather_json["list"][i]["weather"][0]["description"]
+                print(float(weather_json["list"][i]["main"]["temp"])-273.15)
+                tenki=f'気温は{round((float(weather_json["list"][i]["main"]["temp"])-273.15),1)}℃{weather_json["list"][i]["weather"][0]["description"]}'
                 break
     print(tenki,"です")
     reply=f"{tenki}です"
     return weather_json
+def yomiage(text=""):
+    global reply
+    requests.post("http://192.168.1.2:5000/tts/",json={"message":text,"start":"","end":""})
 if __name__=="__main__":
-    asyncio.run(always_on_voice())
+    always_on_voice()
