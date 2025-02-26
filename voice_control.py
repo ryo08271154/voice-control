@@ -12,13 +12,14 @@ import requests
 import datetime
 devices=switchbot.devices
 scenes=switchbot.scenes
-custom_scenes=json.load(open("custom_scenes.json"))
-custom_devices=json.load(open("custom_devices.json"))
+dir_name=os.path.dirname(__file__)
+custom_scenes=json.load(open(os.path.join(dir_name,"custom_scenes.json")))
+custom_devices=json.load(open(os.path.join(dir_name,"custom_devices.json")))
 last_text=""
 reply=""
 def always_on_voice():
     global last_text
-    model = vosk.Model("model_2")
+    model = vosk.Model(os.path.join(dir_name,"model_2"))
     recognizer = vosk.KaldiRecognizer(model, 16000)
     # PyAudioの設定
     p = pyaudio.PyAudio()
@@ -39,29 +40,37 @@ def always_on_voice():
                     last_text=text
         except KeyboardInterrupt:
             exit()
-                
+def judge(text):
+    action=None
+    client=wit.Wit(os.getenv("WIT_TOKEN"))
+    r=client.message(text)
+    if r['intents'] and r['entities']:
+        if r['intents'][0]['name']=='turnOn' or 'turnOff':
+            action=r['intents'][0]["name"]
+        if r['intents'][0]['name']=='weather' and r["entities"]:
+            action=datetime.datetime.fromisoformat(r["entities"]["wit$datetime:datetime"][0]["value"])
+    return action                
 def control(text):
     global reply
     reply=""
     text=text.replace(" ","")
-    def judge():
-        action=None
-        client=wit.Wit(os.getenv("WIT_TOKEN"))
-        r=client.message(text)
-        if r['intents'] and r['entities']:
-            if r['intents'][0]['name']=='turnOn' or 'turnOff':
-                action=r['intents'][0]["name"]
-            if r['intents'][0]['name']=='weather' and r["entities"]:
-                action=datetime.datetime.fromisoformat(r["entities"]["wit$datetime:datetime"][0]["value"])
-        return action
     if "天気" in text:
-        action=judge()
+        action=judge(text)
         if action:weather(action)
         else:reply="いつの天気を教えてほしいかわかりませんでした"
         return yomiage(reply)
+    custom_device_control(text)
+    custom_scene_control(text)
+    switchbot_device_control(text)
+    switchbot_scene_control(text)
+    if reply!="":
+        reply="よくわかりませんでした"
+def custom_device_control(text):
+    action=None
     for i in custom_devices["deviceList"]:
         if i["deviceName"] in text:
-            action=judge()
+            if not action:
+                action=judge(text)
             if action:
                 command=i[action].split(" ")
                 if action=="turnOn":reply=f"{i['deviceName']}をオンにします"
@@ -71,17 +80,21 @@ def control(text):
             else:
                 print("わかりませんでした")
                 reply="なにをするかわかりませんでした"
-            return yomiage(reply)
+            yomiage(reply)
+def custom_scene_control(text):
     for i in custom_scenes["sceneList"]:
         if i["sceneName"] in text:
             command=i["command"].split(" ")
             reply=f"{i['sceneName']}を実行します"
             print("カスタムシーン:",command)
             subprocess.run(command)
-            return yomiage(reply)
+            yomiage(reply)
+def switchbot_device_control(text):
+    action=None
     for i in devices["body"]["infraredRemoteList"]:
         if i["deviceName"] in text:
-            action=judge()
+            if not action:
+                action=judge(text)
             if action=="turnOn":reply=f"{i['deviceName']}をオンにします"
             else:reply=f"{i['deviceName']}をオフにします"
             print(action)
@@ -89,13 +102,13 @@ def control(text):
                 switchbot.commands(i["deviceName"],action)
             else:
                 reply="なにをするかわかりませんでした"
-            return yomiage(reply)
+            yomiage(reply)
+def switchbot_scene_control(text):
     for i in scenes["body"]:
         if i["sceneName"] in text:
             reply=f"{i['sceneName']}を実行します"
             switchbot.scene(i["sceneName"])
-            return yomiage(reply)
-    reply="よくわかりませんでした"
+            yomiage(reply)
 def weather(date):
     global reply
     api_key=os.getenv("OPENWEATHER_APIKEY")
@@ -109,8 +122,8 @@ def weather(date):
         get_date=datetime.datetime.strftime(date,"%Y-%m-%d")
         for i in range(1,len(weather_json["list"])):
             if weather_json["list"][i]["dt_txt"]==f"{get_date} 09:00:00":
-                tenki=f'９時の気温は{round((float(weather_json["list"][i]["main"]["temp"])-273.15),1)}℃ 天気は{weather_json["list"][i]["weather"][0]["description"]} '
-                tenki+=f'１２時の気温は{round((float(weather_json["list"][i+1]["main"]["temp"])-273.15),1)}℃ 天気は{weather_json["list"][i+1]["weather"][0]["description"]} '
+                tenki=f'９時の気温は{round((float(weather_json["list"][i]["main"]["temp"])-273.15),1)}℃ 天気は{weather_json["list"][i]["weather"][0]["description"]}でしょう '
+                tenki+=f'１２時の気温は{round((float(weather_json["list"][i+1]["main"]["temp"])-273.15),1)}℃ 天気は{weather_json["list"][i+1]["weather"][0]["description"]}でしょう '
                 tenki+=f'１５時の気温は{round((float(weather_json["list"][i+2]["main"]["temp"])-273.15),1)}℃ 天気は{weather_json["list"][i+2]["weather"][0]["description"]}'
     print(tenki,"です")
     reply=f"{tenki}です"
