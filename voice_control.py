@@ -77,15 +77,19 @@ class Voice:
             self.control.custom_scene_control(text)
             self.control.switchbot_scene_control(text)
         if self.reply!="":
-            reply="よくわかりませんでした"
+            self.reply="よくわかりませんでした"
+    def yomiage(self,text=""):
+        self.reply=text
+        requests.post("http://192.168.1.2:5000/tts/",json={"message":self.reply,"start":"","end":""})
 class Control:
-    def __init__(self,switchbotdevices,switchbotscenes,customdevices,customscenes):
+    def __init__(self,switchbotdevices,switchbotscenes,customdevices,customscenes,yomiage=None):
         self.devices=switchbotdevices
         self.scenes=switchbotscenes
         self.custom_devices=customdevices
         self.custom_scenes=customscenes
         self.devices_name=[i["deviceName"] for i in self.devices["body"]["infraredRemoteList"]]
         # self.custom_devices_name=[i["deviceName"] for i in custom_devices["deviceList"]]
+        self.yomiage=yomiage
     def custom_device_control(self,text,action):
         for i in self.custom_devices["deviceList"]:
             if i["deviceName"] in text:
@@ -98,7 +102,7 @@ class Control:
                 else:
                     print("わかりませんでした")
                     reply="なにをするかわかりませんでした"
-                yomiage(reply)
+                self.yomiage(reply)
     def custom_scene_control(self,text):
         for i in self.custom_scenes["sceneList"]:
             if i["sceneName"] in text:
@@ -106,7 +110,7 @@ class Control:
                 reply=f"{i['sceneName']}を実行します"
                 print("カスタムシーン:",command)
                 subprocess.run(command)
-                yomiage(reply)
+                self.yomiage(reply)
     def switchbot_device_control(self,text,action):
         for i in text:
             if i in self.devices_name:
@@ -117,17 +121,18 @@ class Control:
                     switchbot.commands(i,action)
                 else:
                     reply="なにをするかわかりませんでした"
-                yomiage(reply)
+                self.yomiage(reply)
     def switchbot_scene_control(self,text):
         for i in self.scenes["body"]:
             if i["sceneName"] in text:
                 reply=f"{i['sceneName']}を実行します"
                 switchbot.scene(i["sceneName"])
-                yomiage(reply)
+                self.yomiage(reply)
 class Services:
-    def __init__(self):
+    def __init__(self,yomiage=None):
         self.weatherapikey=os.getenv("OPENWEATHER_APIKEY")
         self.location=os.getenv("OPENWEATHER")
+        self.yomiage=yomiage
     def weather(self,date):
         tenki=""
         if not date:
@@ -145,15 +150,15 @@ class Services:
                     tenki+=f'１５時の気温は{round((float(weather_json["list"][i+2]["main"]["temp"])-273.15),1)}℃ 天気は{weather_json["list"][i+2]["weather"][0]["description"]}'
         print(tenki,"です")
         reply=f"{tenki}です"
-        yomiage(reply)
-def yomiage(text=""):
-    requests.post("http://192.168.1.2:5000/tts/",json={"message":text,"start":"","end":""})
+        self.yomiage(reply)
 def run():
     custom_scenes=json.load(open(os.path.join(dir_name,"custom_scenes.json")))
     custom_devices=json.load(open(os.path.join(dir_name,"custom_devices.json")))
     c=Control(switchbot.devices,switchbot.scenes,custom_devices,custom_scenes)
     s=Services()
     voice=Voice(c.devices_name,c.custom_devices,c,s)
+    c.yomiage=voice.yomiage
+    s.yomiage=voice.yomiage
     voice.words.extend(["電気","天気"])
     voice.always_on_voice()
 if __name__=="__main__":
