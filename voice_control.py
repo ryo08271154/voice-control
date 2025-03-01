@@ -76,7 +76,7 @@ class Voice:
         else:
             self.control.custom_scene_control(text)
             self.control.switchbot_scene_control(text)
-        if self.reply!="":
+        if self.reply=="":
             self.reply="よくわかりませんでした"
     def yomiage(self,text=""):
         self.reply=text
