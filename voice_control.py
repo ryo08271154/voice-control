@@ -2,7 +2,7 @@ import switchbot
 import os
 import wit
 import asyncio
-import speech_recognition as sr
+# import speech_recognition as sr
 import vosk
 import pyaudio
 import json
@@ -154,7 +154,7 @@ def run():
     c=Control(switchbot.devices,switchbot.scenes,custom_devices,custom_scenes)
     s=Services()
     voice=Voice(c.devices_name,c.custom_devices,c,s)
-    voice.words.append("電気","天気")
+    voice.words.extend(["電気","天気"])
     voice.always_on_voice()
 if __name__=="__main__":
     run()
