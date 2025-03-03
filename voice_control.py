@@ -107,9 +107,10 @@ class Control:
         for i in self.custom_scenes["sceneList"]:
             if i["sceneName"] in text:
                 command=i["command"].split(" ")
-                reply=f"{i['sceneName']}を実行します"
-                print("カスタムシーン:",command)
-                subprocess.run(command)
+                for _ in range(text.count(i["sceneName"])):
+                    reply=f"{i['sceneName']}を実行します"
+                    print("カスタムシーン:",command)
+                    subprocess.run(command)
                 self.yomiage(reply)
     def switchbot_device_control(self,text,action):
         for i in text:
@@ -125,8 +126,9 @@ class Control:
     def switchbot_scene_control(self,text):
         for i in self.scenes["body"]:
             if i["sceneName"] in text:
-                reply=f"{i['sceneName']}を実行します"
-                switchbot.scene(i["sceneName"])
+                for _ in range(text.count(i["sceneName"])):
+                    reply=f"{i['sceneName']}を実行します"
+                    switchbot.scene(i["sceneName"])
                 self.yomiage(reply)
 class Services:
     def __init__(self,yomiage=None):
