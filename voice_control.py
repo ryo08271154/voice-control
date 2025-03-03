@@ -22,7 +22,7 @@ class Voice:
         self.wit_token=wit_token
         self.reply=""
         self.text=""
-        self.model=vosk.Model(os.path.join(dir_name,"model_2"))
+        self.model=vosk.Model(os.path.join(dir_name,"vosk-model-ja"))
         self.recognizer = vosk.KaldiRecognizer(self.model, 16000)
     def always_on_voice(self):
         # PyAudioの設定
@@ -133,7 +133,7 @@ class Services:
             tenki="いつの天気を教えてほしいかわかりませんでした"
         elif datetime.datetime.now().day==date.day:
             weather_json=requests.get(f"https://api.openweathermap.org/data/2.5/weather?lat={self.location['latitude']}&lon={self.location['longitude']}&lang=ja&appid={self.weatherapikey}").json()
-            tenki=f"気温は{round((float(weather_json['main']['temp'])-273.15),1)}℃です 天気は{weather_json['weather'][0]['description']}です"
+            tenki=f"気温は{round((float(weather_json['main']['temp'])-273.15),1)}℃ 天気は{weather_json['weather'][0]['description']}です"
         else:
             weather_json=requests.get(f"https://api.openweathermap.org/data/2.5/forecast?lat={self.location['latitude']}&lon={self.location['longitude']}&lang=ja&appid={self.weatherapikey}").json()
             get_date=datetime.datetime.strftime(date,"%Y-%m-%d")
