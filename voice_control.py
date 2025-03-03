@@ -18,7 +18,7 @@ dir_name=os.path.dirname(__file__)
 # devices_name=[i["deviceName"] for i in devices["body"]["infraredRemoteList"]]
 # custom_devices_name=[i["deviceName"] for i in custom_devices["deviceList"]]
 class Voice:
-    def __init__(self,devices_name,custom_devices,control,service):
+    def __init__(self,devices_name,custom_devices,control,service,wit_token):
         self.words=[]
         self.devices_name=devices_name
         self.custom_devices_name=[i["deviceName"] for i in custom_devices["deviceList"]]
@@ -26,6 +26,7 @@ class Voice:
         self.words.extend(self.custom_devices_name)
         self.control=control
         self.service=service
+        self.wit_token=wit_token
         self.reply=""
         self.text=""
         self.model=vosk.Model(os.path.join(dir_name,"model_2"))
@@ -52,7 +53,7 @@ class Voice:
 
     def judge(self,text):
         action=None
-        client=wit.Wit(os.getenv("WIT_TOKEN"))
+        client=wit.Wit(self.wit_token)
         r=client.message(text)
         if r['intents']:
             if r['entities']:
@@ -131,34 +132,35 @@ class Control:
                     switchbot.scene(i["sceneName"])
                 self.yomiage(reply)
 class Services:
-    def __init__(self,yomiage=None):
-        self.weatherapikey=os.getenv("OPENWEATHER_APIKEY")
-        self.location=os.getenv("OPENWEATHER")
+    def __init__(self,weatherapikey=None,location=None,yomiage=None):
+        self.weatherapikey=weatherapikey
+        self.location=location
         self.yomiage=yomiage
     def weather(self,date):
         tenki=""
         if not date:
             tenki="いつの天気を教えてほしいかわかりませんでした"
         elif datetime.datetime.now().day==date.day:
-            weather_json=requests.get(f"https://api.openweathermap.org/data/2.5/weather?{self.location}&lang=ja&appid={self.weatherapikey}").json()
-            tenki=weather_json["weather"][0]["description"]
+            weather_json=requests.get(f"https://api.openweathermap.org/data/2.5/weather?lat={self.location['latitude']}&lon={self.location['longitude']}&lang=ja&appid={self.weatherapikey}").json()
+            tenki=f"気温は{round((float(weather_json['main']['temp'])-273.15),1)}℃です 天気は{weather_json['weather'][0]['description']}です"
         else:
-            weather_json=requests.get(f"https://api.openweathermap.org/data/2.5/forecast?{self.location}&lang=ja&appid={self.weatherapikey}").json()
+            weather_json=requests.get(f"https://api.openweathermap.org/data/2.5/forecast?lat={self.location['latitude']}&lon={self.location['longitude']}&lang=ja&appid={self.weatherapikey}").json()
             get_date=datetime.datetime.strftime(date,"%Y-%m-%d")
             for i in range(1,len(weather_json["list"])):
                 if weather_json["list"][i]["dt_txt"]==f"{get_date} 09:00:00":
                     tenki=f'９時の気温は{round((float(weather_json["list"][i]["main"]["temp"])-273.15),1)}℃ 天気は{weather_json["list"][i]["weather"][0]["description"]}でしょう '
                     tenki+=f'１２時の気温は{round((float(weather_json["list"][i+1]["main"]["temp"])-273.15),1)}℃ 天気は{weather_json["list"][i+1]["weather"][0]["description"]}でしょう '
-                    tenki+=f'１５時の気温は{round((float(weather_json["list"][i+2]["main"]["temp"])-273.15),1)}℃ 天気は{weather_json["list"][i+2]["weather"][0]["description"]}'
+                    tenki+=f'１５時の気温は{round((float(weather_json["list"][i+2]["main"]["temp"])-273.15),1)}℃ 天気は{weather_json["list"][i+2]["weather"][0]["description"]}でしょう'
         print(tenki,"です")
-        reply=f"{tenki}です"
+        reply=f"{tenki}"
         self.yomiage(reply)
 def run():
     custom_scenes=json.load(open(os.path.join(dir_name,"custom_scenes.json")))
     custom_devices=json.load(open(os.path.join(dir_name,"custom_devices.json")))
+    config=json.load(open(os.path.join(dir_name,"config.json")))
     c=Control(switchbot.devices,switchbot.scenes,custom_devices,custom_scenes)
-    s=Services()
-    voice=Voice(c.devices_name,c.custom_devices,c,s)
+    s=Services(config["apikeys"]["weather_api_key"],config["location"])
+    voice=Voice(c.devices_name,c.custom_devices,c,s,config["apikeys"]["wit_token"])
     c.yomiage=voice.yomiage
     s.yomiage=voice.yomiage
     voice.words.extend(["電気","天気"])
