@@ -38,7 +38,6 @@ def main(page:flet.Page):
         s.yomiage=voice.yomiage
         voice.words.extend(["電気","天気"])
         def run():
-            
             voice.always_on_voice()
         try:
             await asyncio.to_thread(run)
@@ -68,9 +67,7 @@ def main(page:flet.Page):
             page.views.append(flet.View("/",[
                                             flet.Container(content=nowtime,expand=True,alignment=flet.alignment.center,on_click=menu)
                                             ],))
-            
         if page.route=="/voice":
-            
             page.views.append(flet.View("/voice",[flet.ElevatedButton("ホーム", on_click=lambda e:page.go("/")),
                                 talk_text,
                                 flet.Container(content=reply,expand=True,alignment=flet.alignment.center)
@@ -90,6 +87,4 @@ def main(page:flet.Page):
     page.run_task(listen)
     page.run_task(always_on_voice)
     page.go(page.route)
-
-
 flet.app(target=main,port=5000)

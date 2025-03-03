@@ -2,21 +2,14 @@ import switchbot
 import os
 import wit
 import asyncio
-# import speech_recognition as sr
 import vosk
 import pyaudio
 import json
 import subprocess
 import threading
 import requests
-import datetime            
-# devices=switchbot.devices
-# scenes=switchbot.scenes
-
+import datetime
 dir_name=os.path.dirname(__file__)
-
-# devices_name=[i["deviceName"] for i in devices["body"]["infraredRemoteList"]]
-# custom_devices_name=[i["deviceName"] for i in custom_devices["deviceList"]]
 class Voice:
     def __init__(self,devices_name,custom_devices,control,service,wit_token):
         self.words=[]
@@ -40,7 +33,6 @@ class Voice:
                         input=True,
                         frames_per_buffer=4000)  # バッファサイズを適切に設定
         while True:
-            # print("聞き取り")
             try:
                 data=stream.read(4000,exception_on_overflow=False)
                 if self.recognizer.AcceptWaveform(data):
@@ -89,7 +81,6 @@ class Control:
         self.custom_devices=customdevices
         self.custom_scenes=customscenes
         self.devices_name=[i["deviceName"] for i in self.devices["body"]["infraredRemoteList"]]
-        # self.custom_devices_name=[i["deviceName"] for i in custom_devices["deviceList"]]
         self.yomiage=yomiage
     def custom_device_control(self,text,action):
         for i in self.custom_devices["deviceList"]:
