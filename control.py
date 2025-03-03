@@ -10,7 +10,6 @@ scenes=switchbot.scenes
 def main(page:flet.Page):
     def menu(e):
         page.go("/menu")
-        print("menu")
     page.theme_mode=flet.ThemeMode.DARK
     page.title="音声操作"
     nowtime = flet.Text(datetime.datetime.now().strftime("%Y/%m/%d\n%H:%M:%S"), size=100,text_align=flet.TextAlign.CENTER)
@@ -23,21 +22,41 @@ def main(page:flet.Page):
             await asyncio.sleep(1)
 
     async def back():
-        await asyncio.sleep(5)
+        await asyncio.sleep(30)
         page.go("/")
-    async def voice():
+    async def listen():
+        import json
+        dir_name=os.path.dirname(__file__)
+        global voice,c
+        custom_scenes=json.load(open(os.path.join(dir_name,"custom_scenes.json")))
+        custom_devices=json.load(open(os.path.join(dir_name,"custom_devices.json")))
+        config=json.load(open(os.path.join(dir_name,"config.json")))
+        c=voice_control.Control(switchbot.devices,switchbot.scenes,custom_devices,custom_scenes)
+        s=voice_control.Services(config["apikeys"]["weather_api_key"],config["location"])
+        voice=voice_control.Voice(c.devices_name,c.custom_devices,c,s,config["apikeys"]["wit_token"])
+        c.yomiage=voice.yomiage
+        s.yomiage=voice.yomiage
+        voice.words.extend(["電気","天気"])
+        def run():
+            voice.always_on_voice()
         try:
-            await asyncio.to_thread(voice_control.always_on_voice)
+            await asyncio.to_thread(run)
         except:pass
     async def always_on_voice():
+        global voice
         text=""
+        task=None
         while True:
-                if voice_control.last_text!=text and voice_control.reply!="":
+                if voice.text!=text and voice.reply!="":
                     page.go("/voice")
-                    talk_text.value=voice_control.last_text
-                    reply.value=voice_control.reply
-                    text=voice_control.last_text
+                    talk_text.value=voice.text
+                    reply.value=voice.reply
+                    text=voice.text
                     page.update()
+                    if not "わかりません" in reply.value:
+                        await asyncio.sleep(30)
+                    if task:
+                        task.cancel()
                     task=asyncio.create_task(back())
                 await asyncio.sleep(1)
     def route(e):
@@ -45,14 +64,10 @@ def main(page:flet.Page):
 
         if page.route=="/":
             reply.value=""
-            page.views.append(flet.View("/",[flet.ElevatedButton("テストページへ移動", on_click=test),
-                                            flet.Row([flet.TextButton("音声認識",on_click=lambda e:page.go("/voice"))]),
+            page.views.append(flet.View("/",[
                                             flet.Container(content=nowtime,expand=True,alignment=flet.alignment.center,on_click=menu)
-
                                             ],))
-            
         if page.route=="/voice":
-            
             page.views.append(flet.View("/voice",[flet.ElevatedButton("ホーム", on_click=lambda e:page.go("/")),
                                 talk_text,
                                 flet.Container(content=reply,expand=True,alignment=flet.alignment.center)
@@ -69,9 +84,7 @@ def main(page:flet.Page):
     page.on=menu
 
     page.run_task(time_update)
+    page.run_task(listen)
     page.run_task(always_on_voice)
-    page.run_task(voice)
     page.go(page.route)
-
-
 flet.app(target=main,port=5000)

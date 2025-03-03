@@ -7,12 +7,6 @@ import base64
 import uuid
 import requests
 import os
-try:
-    devices=json.load(open("./devices.json","r"))
-    scenes=json.load(open("./scenes.json","r"))
-except:
-    devices={}
-    scenes={}
 def header():
     # Declare empty header dictionary
     apiHeader = {}
@@ -49,7 +43,7 @@ def get_device_list():
         apiHeader=header()
         r = requests.get(url="https://api.switch-bot.com/v1.1/devices",headers=apiHeader)
         j=r.json()
-        with open("./devices.json","w") as f:
+        with open(os.path.join(dir_name,"devices.json"),"w") as f:
             json.dump(j,f,ensure_ascii=False,indent=2, separators=(',', ': '))
         # infraredRemoteList=j["body"]["infraredRemoteList"]
         # device =j["body"]["deviceList"]
@@ -61,7 +55,7 @@ def get_scene_list():
         apiHeader=header()
         r = requests.get(url="https://api.switch-bot.com/v1.1/scenes",headers=apiHeader)
         j=r.json()
-        with open("./scenes.json","w") as f:
+        with open(os.path.join(dir_name,"scenes.json"),"w") as f:
             json.dump(j,f,ensure_ascii=False,indent=2, separators=(',', ': '))
         return j
 
@@ -109,6 +103,17 @@ def scene(name):
     j=r.json()
     # print(j)
     return j
+dir_name=os.path.dirname(__file__)
+try:
+    devices=json.load(open(os.path.join(dir_name,"devices.json"),"r"))
+    scenes=json.load(open(os.path.join(dir_name,"scenes.json"),"r"))
+except:
+    devices={}
+    scenes={}
+    get_device_list()
+    get_scene_list()
+# print(device_list())
+# get_device_list())
 # get_scene_list()
 # print(scenes)
 # commands("テレビ","turnOn")

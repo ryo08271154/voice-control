@@ -1,0 +1,10 @@
+{
+    "apikeys":{
+        "wit_token":"",
+        "weather_api_key":""
+    },
+    "location":{
+        "latitude":"",
+        "longitude":""
+    }
+}
