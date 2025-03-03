@@ -10,7 +10,6 @@ scenes=switchbot.scenes
 def main(page:flet.Page):
     def menu(e):
         page.go("/menu")
-        print("menu")
     page.theme_mode=flet.ThemeMode.DARK
     page.title="音声操作"
     nowtime = flet.Text(datetime.datetime.now().strftime("%Y/%m/%d\n%H:%M:%S"), size=100,text_align=flet.TextAlign.CENTER)
@@ -55,6 +54,8 @@ def main(page:flet.Page):
                     reply.value=voice.reply
                     text=voice.text
                     page.update()
+                    if not "わかりません" in reply.value:
+                        await asyncio.sleep(30)
                     if task:
                         task.cancel()
                     task=asyncio.create_task(back())
@@ -64,10 +65,8 @@ def main(page:flet.Page):
 
         if page.route=="/":
             reply.value=""
-            page.views.append(flet.View("/",[flet.ElevatedButton("テストページへ移動", on_click=test),
-                                            flet.Row([flet.TextButton("音声認識",on_click=lambda e:page.go("/voice"))]),
+            page.views.append(flet.View("/",[
                                             flet.Container(content=nowtime,expand=True,alignment=flet.alignment.center,on_click=menu)
-
                                             ],))
             
         if page.route=="/voice":
