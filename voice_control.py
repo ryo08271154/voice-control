@@ -41,7 +41,7 @@ class Voice:
                         print(self.text)
                         threading.Thread(target=self.command,args=(self.text,)).start()
             except KeyboardInterrupt:
-                exit()
+                break
 
     def judge(self,text):
         action=None
@@ -51,7 +51,7 @@ class Voice:
             if r['entities']:
                 if r['intents'][0]['name'] in ['turnOn','turnOff']:
                     action=r['intents'][0]["name"]
-                    device_name=[i["body"] for i in r["entities"]["device_name:device_name"]]
+                    device_name=[i["value"] for i in r["entities"]["device_name:device_name"]]
                     self.control.custom_device_control(device_name,action)
                     self.control.switchbot_device_control(device_name,action)
             if r['intents'][0]['name']=='weather':
