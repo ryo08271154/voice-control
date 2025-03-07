@@ -24,6 +24,7 @@ class Voice:
         self.text=""
         self.model=vosk.Model(os.path.join(dir_name,"vosk-model-ja"))
         self.recognizer = vosk.KaldiRecognizer(self.model, 16000)
+        self.mute=False
     def always_on_voice(self):
         # PyAudioの設定
         p = pyaudio.PyAudio()
@@ -34,12 +35,13 @@ class Voice:
                         frames_per_buffer=4000)  # バッファサイズを適切に設定
         while True:
             try:
-                data=stream.read(4000,exception_on_overflow=False)
-                if self.recognizer.AcceptWaveform(data):
-                    self.text=json.loads(self.recognizer.Result())["text"]
-                    if self.text!="":
-                        print(self.text)
-                        threading.Thread(target=self.command,args=(self.text,)).start()
+                if self.mute==False:
+                    data=stream.read(4000,exception_on_overflow=False)
+                    if self.recognizer.AcceptWaveform(data):
+                        self.text=json.loads(self.recognizer.Result())["text"]
+                        if self.text!="":
+                            print(self.text)
+                            threading.Thread(target=self.command,args=(self.text,)).start()
             except KeyboardInterrupt:
                 break
 
@@ -73,7 +75,9 @@ class Voice:
             self.reply="よくわかりませんでした"
     def yomiage(self,text=""):
         self.reply=text
+        self.mute=True
         requests.post("http://192.168.1.2:5000/tts/",json={"message":self.reply,"start":"","end":""})
+        self.mute=False
 class Control:
     def __init__(self,switchbotdevices,switchbotscenes,customdevices,customscenes,yomiage=None):
         self.devices=switchbotdevices
