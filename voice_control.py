@@ -9,6 +9,7 @@ import subprocess
 import threading
 import requests
 import datetime
+import pychromecast
 dir_name=os.path.dirname(__file__)
 class Voice:
     def __init__(self,devices_name,custom_devices,control,service,wit_token):
@@ -24,6 +25,7 @@ class Voice:
         self.text=""
         self.model=vosk.Model(os.path.join(dir_name,"vosk-model-ja"))
         self.recognizer = vosk.KaldiRecognizer(self.model, 16000)
+        self.mute=False
     def always_on_voice(self):
         # PyAudioの設定
         p = pyaudio.PyAudio()
@@ -34,14 +36,15 @@ class Voice:
                         frames_per_buffer=4000)  # バッファサイズを適切に設定
         while True:
             try:
-                data=stream.read(4000,exception_on_overflow=False)
-                if self.recognizer.AcceptWaveform(data):
-                    self.text=json.loads(self.recognizer.Result())["text"]
-                    if self.text!="":
-                        print(self.text)
-                        threading.Thread(target=self.command,args=(self.text,)).start()
+                if self.mute==False:
+                    data=stream.read(4000,exception_on_overflow=False)
+                    if self.recognizer.AcceptWaveform(data):
+                        self.text=json.loads(self.recognizer.Result())["text"]
+                        if self.text!="":
+                            print(self.text)
+                            threading.Thread(target=self.command,args=(self.text,)).start()
             except KeyboardInterrupt:
-                exit()
+                break
 
     def judge(self,text):
         action=None
@@ -51,13 +54,23 @@ class Voice:
             if r['entities']:
                 if r['intents'][0]['name'] in ['turnOn','turnOff']:
                     action=r['intents'][0]["name"]
-                    device_name=[i["body"] for i in r["entities"]["device_name:device_name"]]
+                    device_name=[i["value"] for i in r["entities"]["device_name:device_name"]]
                     self.control.custom_device_control(device_name,action)
                     self.control.switchbot_device_control(device_name,action)
             if r['intents'][0]['name']=='weather':
                 if r["entities"]:
                     action=datetime.datetime.fromisoformat(r["entities"]["wit$datetime:datetime"][0]["value"])
                 self.service.weather(action)
+            if r['intents'][0]['name']=='Play':
+                self.control.media_control("Play")
+            if r['intents'][0]['name']=='Pause':
+                self.control.media_control("Pause")
+            if r['intents'][0]['name']=='Stop':
+                self.control.media_control("Stop")
+            if r['intents'][0]['name']=='volume_up':
+                self.control.volume_control("volume_up")
+            if r['intents'][0]['name']=='volume_down':
+                self.control.volume_control("volume_down")
         return action
     def command(self,text):
         self.reply=""
@@ -73,7 +86,9 @@ class Voice:
             self.reply="よくわかりませんでした"
     def yomiage(self,text=""):
         self.reply=text
+        self.mute=True
         requests.post("http://192.168.1.2:5000/tts/",json={"message":self.reply,"start":"","end":""})
+        self.mute=False
 class Control:
     def __init__(self,switchbotdevices,switchbotscenes,customdevices,customscenes,yomiage=None):
         self.devices=switchbotdevices
@@ -82,6 +97,7 @@ class Control:
         self.custom_scenes=customscenes
         self.devices_name=[i["deviceName"] for i in self.devices["body"]["infraredRemoteList"]]
         self.yomiage=yomiage
+        self.chromecasts, self.browser = pychromecast.get_listed_chromecasts(friendly_names=["Chromecast HD","Nest Audio"])
     def custom_device_control(self,text,action):
         for i in self.custom_devices["deviceList"]:
             if i["deviceName"] in text:
@@ -122,6 +138,48 @@ class Control:
                     reply=f"{i['sceneName']}を実行します"
                     switchbot.scene(i["sceneName"])
                 self.yomiage(reply)
+    def volume_control(self,action):
+        print(action)
+        for cast in self.chromecasts:
+            cast.wait()
+            if cast.status.app_id!=None:
+                volume=cast.status.volume_level
+                try:
+                    if action=="volume_up":
+                        cast.set_volume(volume+0.01)
+                    if action=="volume_down":
+                        cast.set_volume(volume-0.01)
+                except:
+                    print("音量操作できません")
+                break
+        else:
+            if action=="volume_up":
+                switchbot.commands("テレビ","volumeAdd")
+            if action=="volume_down":
+                switchbot.commands("テレビ","volumeSub")
+    def media_control(self,action):
+        for cast in self.chromecasts:
+            cast.wait()
+            if cast.status.app_id!=None:
+                print(cast)
+                try:
+                    if action=="Play":
+                        cast.media_controller.play()
+                    if action=="Pause":
+                        cast.media_controller.pause()
+                    if action=="Stop":
+                        cast.media_controller.stop()
+                except:
+                    print("メディア操作できません")
+                break
+        else:
+            print("テレビ操作")
+            if action=="Play":
+                switchbot.scene("再生")
+            if action=="Pause":
+                switchbot.scene("一時停止")
+            if action=="Stop":
+                switchbot.scene("停止")
 class Services:
     def __init__(self,weatherapikey=None,location=None,yomiage=None):
         self.weatherapikey=weatherapikey
@@ -133,16 +191,16 @@ class Services:
             tenki="いつの天気を教えてほしいかわかりませんでした"
         elif datetime.datetime.now().day==date.day:
             weather_json=requests.get(f"https://api.openweathermap.org/data/2.5/weather?lat={self.location['latitude']}&lon={self.location['longitude']}&lang=ja&appid={self.weatherapikey}").json()
-            tenki=f"気温は{round((float(weather_json['main']['temp'])-273.15),1)}℃ 天気は{weather_json['weather'][0]['description']}です"
+            tenki=f"今日の気温は{round((float(weather_json['main']['temp'])-273.15),1)}℃ 天気は{weather_json['weather'][0]['description']}です"
         else:
             weather_json=requests.get(f"https://api.openweathermap.org/data/2.5/forecast?lat={self.location['latitude']}&lon={self.location['longitude']}&lang=ja&appid={self.weatherapikey}").json()
             get_date=datetime.datetime.strftime(date,"%Y-%m-%d")
             for i in range(1,len(weather_json["list"])):
                 if weather_json["list"][i]["dt_txt"]==f"{get_date} 09:00:00":
-                    tenki=f'９時の気温は{round((float(weather_json["list"][i]["main"]["temp"])-273.15),1)}℃ 天気は{weather_json["list"][i]["weather"][0]["description"]}でしょう '
-                    tenki+=f'１２時の気温は{round((float(weather_json["list"][i+1]["main"]["temp"])-273.15),1)}℃ 天気は{weather_json["list"][i+1]["weather"][0]["description"]}でしょう '
+                    tenki=f'{date.day}日の９時の気温は{round((float(weather_json["list"][i]["main"]["temp"])-273.15),1)}℃ 天気は{weather_json["list"][i]["weather"][0]["description"]} '
+                    tenki+=f'１２時の気温は{round((float(weather_json["list"][i+1]["main"]["temp"])-273.15),1)}℃ 天気は{weather_json["list"][i+1]["weather"][0]["description"]} '
                     tenki+=f'１５時の気温は{round((float(weather_json["list"][i+2]["main"]["temp"])-273.15),1)}℃ 天気は{weather_json["list"][i+2]["weather"][0]["description"]}でしょう'
-        print(tenki,"です")
+        print(tenki)
         reply=f"{tenki}"
         self.yomiage(reply)
 def run():
@@ -154,7 +212,7 @@ def run():
     voice=Voice(c.devices_name,c.custom_devices,c,s,config["apikeys"]["wit_token"])
     c.yomiage=voice.yomiage
     s.yomiage=voice.yomiage
-    voice.words.extend(["電気","天気"])
+    voice.words.extend(["電気","天気","再生","停止","止めて","音"])
     voice.always_on_voice()
 if __name__=="__main__":
     run()

@@ -36,7 +36,7 @@ def main(page:flet.Page):
         voice=voice_control.Voice(c.devices_name,c.custom_devices,c,s,config["apikeys"]["wit_token"])
         c.yomiage=voice.yomiage
         s.yomiage=voice.yomiage
-        voice.words.extend(["電気","天気"])
+        voice.words.extend(["電気","天気","再生","停止","止めて","音"])
         def run():
             voice.always_on_voice()
         try:
