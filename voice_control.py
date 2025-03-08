@@ -61,6 +61,12 @@ class Voice:
                 if r["entities"]:
                     action=datetime.datetime.fromisoformat(r["entities"]["wit$datetime:datetime"][0]["value"])
                 self.service.weather(action)
+            if r['intents'][0]['name']=='Play':
+                self.control.media_control("Play")
+            if r['intents'][0]['name']=='Pause':
+                self.control.media_control("Pause")
+            if r['intents'][0]['name']=='Stop':
+                self.control.media_control("Stop")
             if r['intents'][0]['name']=='volume_up':
                 self.control.volume_control("volume_up")
             if r['intents'][0]['name']=='volume_down':
@@ -91,6 +97,7 @@ class Control:
         self.custom_scenes=customscenes
         self.devices_name=[i["deviceName"] for i in self.devices["body"]["infraredRemoteList"]]
         self.yomiage=yomiage
+        self.chromecasts, self.browser = pychromecast.get_listed_chromecasts()
     def custom_device_control(self,text,action):
         for i in self.custom_devices["deviceList"]:
             if i["deviceName"] in text:
@@ -133,21 +140,35 @@ class Control:
                 self.yomiage(reply)
     def volume_control(self,action):
         print(action)
-        chromecasts, browser = pychromecast.get_listed_chromecasts(friendly_names=["Chromecast HD"])
-        cast=chromecasts[0]
-        cast.wait()
-        if cast.status.app_id!=None:
-            volume=cast.status.volume_level
-            mc=cast.media_controller
-            if action=="volume_up":
-                cast.set_volume(volume+0.1)
-            if action=="volume_down":
-                cast.set_volume(volume-0.1)
+        for cast in self.chromecasts:
+            cast.wait()
+            if cast.status.app_id!=None:
+                volume=cast.status.volume_level
+                if action=="volume_up":
+                    cast.set_volume(volume+0.1)
+                if action=="volume_down":
+                    cast.set_volume(volume-0.1)
+                break
         else:
             if action=="volume_up":
                 switchbot.commands("テレビ","volumeAdd")
             if action=="volume_down":
                 switchbot.commands("テレビ","volumeSub")
+    def media_control(self,action):
+        for cast in self.chromecasts:
+            cast.wait()
+            if cast.status.app_id!=None:
+                print(cast)
+                if action=="Play":
+                    cast.media_controller.play()
+                if action=="Pause":
+                    cast.media_controller.pause()
+                if action=="Stop":
+                    cast.media_controller.stop()
+                break
+        else:
+            print("テレビ操作")
+            switchbot.commands("テレビ",action)
 class Services:
     def __init__(self,weatherapikey=None,location=None,yomiage=None):
         self.weatherapikey=weatherapikey
@@ -180,7 +201,7 @@ def run():
     voice=Voice(c.devices_name,c.custom_devices,c,s,config["apikeys"]["wit_token"])
     c.yomiage=voice.yomiage
     s.yomiage=voice.yomiage
-    voice.words.extend(["電気","天気","音量"])
+    voice.words.extend(["電気","天気","再生","停止","止めて","音"])
     voice.always_on_voice()
 if __name__=="__main__":
     run()
