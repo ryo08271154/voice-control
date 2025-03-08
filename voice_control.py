@@ -97,7 +97,7 @@ class Control:
         self.custom_scenes=customscenes
         self.devices_name=[i["deviceName"] for i in self.devices["body"]["infraredRemoteList"]]
         self.yomiage=yomiage
-        self.chromecasts, self.browser = pychromecast.get_listed_chromecasts()
+        self.chromecasts, self.browser = pychromecast.get_listed_chromecasts(friendly_names=["Chromecast HD","Nest Audio"])
     def custom_device_control(self,text,action):
         for i in self.custom_devices["deviceList"]:
             if i["deviceName"] in text:
@@ -144,10 +144,13 @@ class Control:
             cast.wait()
             if cast.status.app_id!=None:
                 volume=cast.status.volume_level
-                if action=="volume_up":
-                    cast.set_volume(volume+0.1)
-                if action=="volume_down":
-                    cast.set_volume(volume-0.1)
+                try:
+                    if action=="volume_up":
+                        cast.set_volume(volume+0.01)
+                    if action=="volume_down":
+                        cast.set_volume(volume-0.01)
+                except:
+                    print("音量操作できません")
                 break
         else:
             if action=="volume_up":
@@ -159,16 +162,24 @@ class Control:
             cast.wait()
             if cast.status.app_id!=None:
                 print(cast)
-                if action=="Play":
-                    cast.media_controller.play()
-                if action=="Pause":
-                    cast.media_controller.pause()
-                if action=="Stop":
-                    cast.media_controller.stop()
+                try:
+                    if action=="Play":
+                        cast.media_controller.play()
+                    if action=="Pause":
+                        cast.media_controller.pause()
+                    if action=="Stop":
+                        cast.media_controller.stop()
+                except:
+                    print("メディア操作できません")
                 break
         else:
             print("テレビ操作")
-            switchbot.commands("テレビ",action)
+            if action=="Play":
+                switchbot.scene("再生")
+            if action=="Pause":
+                switchbot.scene("一時停止")
+            if action=="Stop":
+                switchbot.scene("停止")
 class Services:
     def __init__(self,weatherapikey=None,location=None,yomiage=None):
         self.weatherapikey=weatherapikey
