@@ -24,6 +24,7 @@ class Voice:
         self.text=""
         self.model=vosk.Model(os.path.join(dir_name,"vosk-model-ja"))
         self.recognizer = vosk.KaldiRecognizer(self.model, 16000)
+        self.mute=False
     def always_on_voice(self):
         # PyAudioの設定
         p = pyaudio.PyAudio()
@@ -34,14 +35,15 @@ class Voice:
                         frames_per_buffer=4000)  # バッファサイズを適切に設定
         while True:
             try:
-                data=stream.read(4000,exception_on_overflow=False)
-                if self.recognizer.AcceptWaveform(data):
-                    self.text=json.loads(self.recognizer.Result())["text"]
-                    if self.text!="":
-                        print(self.text)
-                        threading.Thread(target=self.command,args=(self.text,)).start()
+                if self.mute==False:
+                    data=stream.read(4000,exception_on_overflow=False)
+                    if self.recognizer.AcceptWaveform(data):
+                        self.text=json.loads(self.recognizer.Result())["text"]
+                        if self.text!="":
+                            print(self.text)
+                            threading.Thread(target=self.command,args=(self.text,)).start()
             except KeyboardInterrupt:
-                exit()
+                break
 
     def judge(self,text):
         action=None
@@ -51,7 +53,7 @@ class Voice:
             if r['entities']:
                 if r['intents'][0]['name'] in ['turnOn','turnOff']:
                     action=r['intents'][0]["name"]
-                    device_name=[i["body"] for i in r["entities"]["device_name:device_name"]]
+                    device_name=[i["value"] for i in r["entities"]["device_name:device_name"]]
                     self.control.custom_device_control(device_name,action)
                     self.control.switchbot_device_control(device_name,action)
             if r['intents'][0]['name']=='weather':
@@ -73,7 +75,9 @@ class Voice:
             self.reply="よくわかりませんでした"
     def yomiage(self,text=""):
         self.reply=text
+        self.mute=True
         requests.post("http://192.168.1.2:5000/tts/",json={"message":self.reply,"start":"","end":""})
+        self.mute=False
 class Control:
     def __init__(self,switchbotdevices,switchbotscenes,customdevices,customscenes,yomiage=None):
         self.devices=switchbotdevices
@@ -133,16 +137,16 @@ class Services:
             tenki="いつの天気を教えてほしいかわかりませんでした"
         elif datetime.datetime.now().day==date.day:
             weather_json=requests.get(f"https://api.openweathermap.org/data/2.5/weather?lat={self.location['latitude']}&lon={self.location['longitude']}&lang=ja&appid={self.weatherapikey}").json()
-            tenki=f"気温は{round((float(weather_json['main']['temp'])-273.15),1)}℃ 天気は{weather_json['weather'][0]['description']}です"
+            tenki=f"今日の気温は{round((float(weather_json['main']['temp'])-273.15),1)}℃ 天気は{weather_json['weather'][0]['description']}です"
         else:
             weather_json=requests.get(f"https://api.openweathermap.org/data/2.5/forecast?lat={self.location['latitude']}&lon={self.location['longitude']}&lang=ja&appid={self.weatherapikey}").json()
             get_date=datetime.datetime.strftime(date,"%Y-%m-%d")
             for i in range(1,len(weather_json["list"])):
                 if weather_json["list"][i]["dt_txt"]==f"{get_date} 09:00:00":
-                    tenki=f'９時の気温は{round((float(weather_json["list"][i]["main"]["temp"])-273.15),1)}℃ 天気は{weather_json["list"][i]["weather"][0]["description"]}でしょう '
-                    tenki+=f'１２時の気温は{round((float(weather_json["list"][i+1]["main"]["temp"])-273.15),1)}℃ 天気は{weather_json["list"][i+1]["weather"][0]["description"]}でしょう '
+                    tenki=f'{date.day}日の９時の気温は{round((float(weather_json["list"][i]["main"]["temp"])-273.15),1)}℃ 天気は{weather_json["list"][i]["weather"][0]["description"]} '
+                    tenki+=f'１２時の気温は{round((float(weather_json["list"][i+1]["main"]["temp"])-273.15),1)}℃ 天気は{weather_json["list"][i+1]["weather"][0]["description"]} '
                     tenki+=f'１５時の気温は{round((float(weather_json["list"][i+2]["main"]["temp"])-273.15),1)}℃ 天気は{weather_json["list"][i+2]["weather"][0]["description"]}でしょう'
-        print(tenki,"です")
+        print(tenki)
         reply=f"{tenki}"
         self.yomiage(reply)
 def run():
