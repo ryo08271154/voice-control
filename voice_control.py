@@ -9,6 +9,7 @@ import subprocess
 import threading
 import requests
 import datetime
+import pychromecast
 dir_name=os.path.dirname(__file__)
 class Voice:
     def __init__(self,devices_name,custom_devices,control,service,wit_token):
@@ -60,6 +61,10 @@ class Voice:
                 if r["entities"]:
                     action=datetime.datetime.fromisoformat(r["entities"]["wit$datetime:datetime"][0]["value"])
                 self.service.weather(action)
+            if r['intents'][0]['name']=='volume_up':
+                self.control.volume_control("volume_up")
+            if r['intents'][0]['name']=='volume_down':
+                self.control.volume_control("volume_down")
         return action
     def command(self,text):
         self.reply=""
@@ -126,6 +131,23 @@ class Control:
                     reply=f"{i['sceneName']}を実行します"
                     switchbot.scene(i["sceneName"])
                 self.yomiage(reply)
+    def volume_control(self,action):
+        print(action)
+        chromecasts, browser = pychromecast.get_listed_chromecasts(friendly_names=["Chromecast HD"])
+        cast=chromecasts[0]
+        cast.wait()
+        if cast.status.app_id!=None:
+            volume=cast.status.volume_level
+            mc=cast.media_controller
+            if action=="volume_up":
+                cast.set_volume(volume+0.1)
+            if action=="volume_down":
+                cast.set_volume(volume-0.1)
+        else:
+            if action=="volume_up":
+                switchbot.commands("テレビ","volumeAdd")
+            if action=="volume_down":
+                switchbot.commands("テレビ","volumeSub")
 class Services:
     def __init__(self,weatherapikey=None,location=None,yomiage=None):
         self.weatherapikey=weatherapikey
@@ -158,7 +180,7 @@ def run():
     voice=Voice(c.devices_name,c.custom_devices,c,s,config["apikeys"]["wit_token"])
     c.yomiage=voice.yomiage
     s.yomiage=voice.yomiage
-    voice.words.extend(["電気","天気"])
+    voice.words.extend(["電気","天気","音量"])
     voice.always_on_voice()
 if __name__=="__main__":
     run()
