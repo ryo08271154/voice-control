@@ -200,7 +200,7 @@ class Services:
             tenki="いつの天気を教えてほしいかわかりませんでした"
         elif datetime.datetime.now().day==date.day:
             weather_json=requests.get(f"https://api.openweathermap.org/data/2.5/weather?lat={self.location['latitude']}&lon={self.location['longitude']}&lang=ja&units=metric&appid={self.weatherapikey}").json()
-            tenki=f"今日の気温は{round((float(weather_json['main']['temp'])-273.15),1)}℃ 天気は{weather_json['weather'][0]['description']}です"
+            tenki=f"今日の気温は{weather_json['main']['temp']}℃ 天気は{weather_json['weather'][0]['description']}です"
         else:
             weather_json=requests.get(f"https://api.openweathermap.org/data/2.5/forecast?lat={self.location['latitude']}&lon={self.location['longitude']}&lang=ja&units=metric&appid={self.weatherapikey}").json()
             get_date=datetime.datetime.strftime(date,"%Y-%m-%d")
