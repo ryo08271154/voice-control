@@ -85,9 +85,18 @@ class Voice:
         if self.reply=="":
             self.reply="よくわかりませんでした"
     def yomiage(self,text=""):
+        start=""
         self.reply=text
         self.mute=True
-        requests.post("http://192.168.1.2:5000/tts/",json={"message":self.reply,"start":"","end":""})
+        if "実行" in text:
+            start="execute"
+        if "オン" in text:
+            start="on"
+        if "オフ" in text:
+            start="off"
+        if start!="":
+            text=""
+        requests.post("http://192.168.1.2:5000/tts/",json={"message":text,"start":start,"end":""})
         self.mute=False
 class Control:
     def __init__(self,switchbotdevices,switchbotscenes,customdevices,customscenes,yomiage=None):
