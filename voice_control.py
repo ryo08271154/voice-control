@@ -96,7 +96,7 @@ class Voice:
             start="off"
         if start!="":
             text=""
-        requests.post("http://192.168.1.2:5000/tts/",json={"message":text,"start":start,"end":""})
+        requests.post("http://192.168.1.2:5000/tts/",json={"message":text,"start":start,"end":""},timeout=10)
         self.mute=False
 class Control:
     def __init__(self,switchbotdevices,switchbotscenes,customdevices,customscenes,yomiage=None):
@@ -199,16 +199,16 @@ class Services:
         if not date:
             tenki="いつの天気を教えてほしいかわかりませんでした"
         elif datetime.datetime.now().day==date.day:
-            weather_json=requests.get(f"https://api.openweathermap.org/data/2.5/weather?lat={self.location['latitude']}&lon={self.location['longitude']}&lang=ja&appid={self.weatherapikey}").json()
+            weather_json=requests.get(f"https://api.openweathermap.org/data/2.5/weather?lat={self.location['latitude']}&lon={self.location['longitude']}&lang=ja&units=metric&appid={self.weatherapikey}").json()
             tenki=f"今日の気温は{round((float(weather_json['main']['temp'])-273.15),1)}℃ 天気は{weather_json['weather'][0]['description']}です"
         else:
-            weather_json=requests.get(f"https://api.openweathermap.org/data/2.5/forecast?lat={self.location['latitude']}&lon={self.location['longitude']}&lang=ja&appid={self.weatherapikey}").json()
+            weather_json=requests.get(f"https://api.openweathermap.org/data/2.5/forecast?lat={self.location['latitude']}&lon={self.location['longitude']}&lang=ja&units=metric&appid={self.weatherapikey}").json()
             get_date=datetime.datetime.strftime(date,"%Y-%m-%d")
             for i in range(1,len(weather_json["list"])):
                 if weather_json["list"][i]["dt_txt"]==f"{get_date} 09:00:00":
-                    tenki=f'{date.day}日の９時の気温は{round((float(weather_json["list"][i]["main"]["temp"])-273.15),1)}℃ 天気は{weather_json["list"][i]["weather"][0]["description"]} '
-                    tenki+=f'１２時の気温は{round((float(weather_json["list"][i+1]["main"]["temp"])-273.15),1)}℃ 天気は{weather_json["list"][i+1]["weather"][0]["description"]} '
-                    tenki+=f'１５時の気温は{round((float(weather_json["list"][i+2]["main"]["temp"])-273.15),1)}℃ 天気は{weather_json["list"][i+2]["weather"][0]["description"]}でしょう'
+                    tenki=f'{date.day}日の９時の気温は{weather_json["list"][i]["main"]["temp"]}℃ 天気は{weather_json["list"][i]["weather"][0]["description"]} '
+                    tenki+=f'１２時の気温は{weather_json["list"][i+1]["main"]["temp"]}℃ 天気は{weather_json["list"][i+1]["weather"][0]["description"]} '
+                    tenki+=f'１５時の気温は{weather_json["list"][i+2]["main"]["temp"]}℃ 天気は{weather_json["list"][i+2]["weather"][0]["description"]}でしょう'
         print(tenki)
         reply=f"{tenki}"
         self.yomiage(reply)
