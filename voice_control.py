@@ -96,17 +96,17 @@ class Voice:
             start="off"
         if start!="":
             text=""
-        requests.post("http://192.168.1.2:5000/tts/",json={"message":text,"start":start,"end":""},timeout=10)
+        requests.post("http://192.168.1.2:5000/tts/",json={"message":text,"start":start,"end":""})
         self.mute=False
 class Control:
-    def __init__(self,switchbotdevices,switchbotscenes,customdevices,customscenes,yomiage=None):
+    def __init__(self,switchbotdevices,switchbotscenes,customdevices,customscenes,friendly_names=[],yomiage=None):
         self.devices=switchbotdevices
         self.scenes=switchbotscenes
         self.custom_devices=customdevices
         self.custom_scenes=customscenes
         self.devices_name=[i["deviceName"] for i in self.devices["body"]["infraredRemoteList"]]
         self.yomiage=yomiage
-        self.chromecasts, self.browser = pychromecast.get_listed_chromecasts(friendly_names=["Chromecast HD","Nest Audio"])
+        self.chromecasts, self.browser = pychromecast.get_listed_chromecasts(friendly_names=friendly_names)
     def custom_device_control(self,text,action):
         for i in self.custom_devices["deviceList"]:
             if i["deviceName"] in text:
@@ -209,6 +209,7 @@ class Services:
                     tenki=f'{date.day}日の９時の気温は{weather_json["list"][i]["main"]["temp"]}℃ 天気は{weather_json["list"][i]["weather"][0]["description"]} '
                     tenki+=f'１２時の気温は{weather_json["list"][i+1]["main"]["temp"]}℃ 天気は{weather_json["list"][i+1]["weather"][0]["description"]} '
                     tenki+=f'１５時の気温は{weather_json["list"][i+2]["main"]["temp"]}℃ 天気は{weather_json["list"][i+2]["weather"][0]["description"]}でしょう'
+                    break
         print(tenki)
         reply=f"{tenki}"
         self.yomiage(reply)
@@ -216,7 +217,7 @@ def run():
     custom_scenes=json.load(open(os.path.join(dir_name,"custom_scenes.json")))
     custom_devices=json.load(open(os.path.join(dir_name,"custom_devices.json")))
     config=json.load(open(os.path.join(dir_name,"config.json")))
-    c=Control(switchbot.devices,switchbot.scenes,custom_devices,custom_scenes)
+    c=Control(switchbot.devices,switchbot.scenes,custom_devices,custom_scenes,config["chromecasts"]["friendly_names"])
     s=Services(config["apikeys"]["weather_api_key"],config["location"])
     voice=Voice(c.devices_name,c.custom_devices,c,s,config["apikeys"]["wit_token"])
     c.yomiage=voice.yomiage

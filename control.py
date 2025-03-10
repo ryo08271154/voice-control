@@ -31,7 +31,7 @@ def main(page:flet.Page):
         custom_scenes=json.load(open(os.path.join(dir_name,"custom_scenes.json")))
         custom_devices=json.load(open(os.path.join(dir_name,"custom_devices.json")))
         config=json.load(open(os.path.join(dir_name,"config.json")))
-        c=voice_control.Control(switchbot.devices,switchbot.scenes,custom_devices,custom_scenes)
+        c=voice_control.Control(switchbot.devices,switchbot.scenes,custom_devices,custom_scenes,config["chromecasts"]["friendly_names"])
         s=voice_control.Services(config["apikeys"]["weather_api_key"],config["location"])
         voice=voice_control.Voice(c.devices_name,c.custom_devices,c,s,config["apikeys"]["wit_token"])
         c.yomiage=voice.yomiage
