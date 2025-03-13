@@ -10,6 +10,7 @@ import threading
 import requests
 import datetime
 import pychromecast
+import time
 dir_name=os.path.dirname(__file__)
 class Voice:
     def __init__(self,devices_name,custom_devices,control,service,wit_token):
@@ -71,6 +72,12 @@ class Voice:
                 self.control.volume_control("volume_up",r["entities"].get("wit$number:number",[{}])[0].get("value",1))
             if r['intents'][0]['name']=='volume_down':
                 self.control.volume_control("volume_down",r["entities"].get("wit$number:number",[{}])[0].get("value",1))
+            if r['intents'][0]['name']=='Back':
+                second=sum(i.get("Second",0)for i in r["entities"].get("wit$duration:duration",[{}]))
+                self.control.back_or_skip("Back",second)
+            if r['intents'][0]['name']=='Skip':
+                second=sum(i.get("Second",0)for i in r["entities"].get("wit$duration:duration",[{}]))
+                self.control.back_or_skip("Skip",second)
         return action
     def command(self,text):
         self.reply=""
@@ -169,12 +176,12 @@ class Control:
                 if action=="volume_down":
                     switchbot.commands("テレビ","volumeSub")
     def media_control(self,action):
+        print(action)
         for cast in self.chromecasts:
             cast.wait()
             mc=cast.media_controller
             if cast.status.app_id!=None:
                 mc.block_until_active(timeout=10)
-                print(cast)
                 try:
                     if action=="Play":
                         mc.play()
@@ -193,6 +200,32 @@ class Control:
                 switchbot.scene("一時停止")
             if action=="Stop":
                 switchbot.scene("停止")
+    def back_or_skip(self,action,second=10):
+        print(action,second)
+        for cast in self.chromecasts:
+            cast.wait()
+            mc=cast.media_controller
+            if cast.status.app_id!=None:
+                try:
+                    mc.block_until_active(timeout=10)
+                    mc.play()
+                    time.sleep(1)
+                    mc.update_status()
+                    current_time=mc.status.current_time
+                    mc.pause()
+                    if action=="Back":
+                        mc.seek(current_time-second)
+                    if action=="Skip":
+                        mc.seek(current_time+second)
+                except:
+                    print("メディア操作できません")
+                break
+        else:
+            for _ in range(second//10):
+                if action=="Back":
+                    switchbot.scene("早戻し")
+                if action=="Skip":
+                    switchbot.scene("早送り")
 class Services:
     def __init__(self,weatherapikey=None,location=None,yomiage=None):
         self.weatherapikey=weatherapikey
@@ -226,7 +259,7 @@ def run():
     voice=Voice(c.devices_name,c.custom_devices,c,s,config["apikeys"]["wit_token"])
     c.yomiage=voice.yomiage
     s.yomiage=voice.yomiage
-    voice.words.extend(["電気","天気","再生","停止","止めて","音"])
+    voice.words.extend(["電気","天気","再生","停止","止めて","音","スキップ","戻"])
     voice.always_on_voice()
 if __name__=="__main__":
     run()
