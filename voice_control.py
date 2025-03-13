@@ -68,9 +68,9 @@ class Voice:
             if r['intents'][0]['name']=='Stop':
                 self.control.media_control("Stop")
             if r['intents'][0]['name']=='volume_up':
-                self.control.volume_control("volume_up")
+                self.control.volume_control("volume_up",r["entities"].get("wit$number:number",[{}])[0].get("value",1))
             if r['intents'][0]['name']=='volume_down':
-                self.control.volume_control("volume_down")
+                self.control.volume_control("volume_down",r["entities"].get("wit$number:number",[{}])[0].get("value",1))
         return action
     def command(self,text):
         self.reply=""
@@ -147,37 +147,41 @@ class Control:
                     reply=f"{i['sceneName']}を実行します"
                     switchbot.scene(i["sceneName"])
                 self.yomiage(reply)
-    def volume_control(self,action):
-        print(action)
-        for cast in self.chromecasts:
-            cast.wait()
-            if cast.status.app_id!=None:
-                volume=cast.status.volume_level
-                try:
-                    if action=="volume_up":
-                        cast.set_volume(volume+0.01)
-                    if action=="volume_down":
-                        cast.set_volume(volume-0.01)
-                except:
-                    print("音量操作できません")
-                break
-        else:
-            if action=="volume_up":
-                switchbot.commands("テレビ","volumeAdd")
-            if action=="volume_down":
-                switchbot.commands("テレビ","volumeSub")
-    def media_control(self,action):
+    def volume_control(self,action,up_down=1):
+        print(action,up_down)
         for cast in self.chromecasts:
             cast.wait()
             if cast.status.app_id!=None:
                 print(cast)
+                volume=cast.status.volume_level
+                try:
+                    if action=="volume_up":
+                        cast.set_volume(volume+(0.01*up_down))
+                    if action=="volume_down":
+                        cast.set_volume(volume-(0.01*up_down))
+                except:
+                    print("音量操作できません")
+                break
+        else:
+            for _ in range(up_down):
+                if action=="volume_up":
+                    switchbot.commands("テレビ","volumeAdd")
+                if action=="volume_down":
+                    switchbot.commands("テレビ","volumeSub")
+    def media_control(self,action):
+        for cast in self.chromecasts:
+            cast.wait()
+            mc=cast.media_controller
+            if cast.status.app_id!=None:
+                mc.block_until_active(timeout=10)
+                print(cast)
                 try:
                     if action=="Play":
-                        cast.media_controller.play()
+                        mc.play()
                     if action=="Pause":
-                        cast.media_controller.pause()
+                        mc.pause()
                     if action=="Stop":
-                        cast.media_controller.stop()
+                        mc.stop()
                 except:
                     print("メディア操作できません")
                 break
