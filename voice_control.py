@@ -11,9 +11,10 @@ import requests
 import datetime
 import pychromecast
 import time
+import unicodedata
 dir_name=os.path.dirname(__file__)
 class Voice:
-    def __init__(self,devices_name,custom_devices,control,service,wit_token):
+    def __init__(self,devices_name,custom_devices,control,service,wit_token,url=""):
         self.words=[]
         self.devices_name=devices_name
         self.custom_devices_name=[i["deviceName"] for i in custom_devices["deviceList"]]
@@ -22,6 +23,7 @@ class Voice:
         self.control=control
         self.service=service
         self.wit_token=wit_token
+        self.url=url
         self.reply=""
         self.text=""
         self.model=vosk.Model(os.path.join(dir_name,"vosk-model-ja"))
@@ -58,10 +60,10 @@ class Voice:
                     device_name=[i["value"] for i in r["entities"]["device_name:device_name"]]
                     self.control.custom_device_control(device_name,action)
                     self.control.switchbot_device_control(device_name,action)
-            if r['intents'][0]['name']=='weather':
-                if r["entities"]:
-                    action=datetime.datetime.fromisoformat(r["entities"]["wit$datetime:datetime"][0]["value"])
-                self.service.weather(action)
+                if r['intents'][0]['name']=='weather':
+                    if r["entities"].get("wit$datetime:datetime"):
+                        action=datetime.datetime.fromisoformat(r["entities"]["wit$datetime:datetime"][0]["value"])
+                    self.service.weather(action)
             if r['intents'][0]['name']=='Play':
                 self.control.media_control("Play")
             if r['intents'][0]['name']=='Pause':
@@ -82,6 +84,7 @@ class Voice:
     def command(self,text):
         self.reply=""
         text=text.replace(" ","")
+        text=unicodedata.normalize("NFKC",text)
         for i in self.words:
             if i in text:
                 self.judge(text)
@@ -103,7 +106,7 @@ class Voice:
             start="off"
         if start!="":
             text=""
-        requests.post("http://192.168.1.2:5000/tts/",json={"message":text,"start":start,"end":""})
+        requests.post(self.url,json={"message":text,"start":start,"end":""})
         self.mute=False
 class Control:
     def __init__(self,switchbotdevices,switchbotscenes,customdevices,customscenes,friendly_names=[],yomiage=None):
@@ -247,6 +250,8 @@ class Services:
                     tenki+=f'１２時の気温は{weather_json["list"][i+1]["main"]["temp"]}℃ 天気は{weather_json["list"][i+1]["weather"][0]["description"]} '
                     tenki+=f'１５時の気温は{weather_json["list"][i+2]["main"]["temp"]}℃ 天気は{weather_json["list"][i+2]["weather"][0]["description"]}でしょう'
                     break
+            else:
+                tenki="天気情報が見つかりませんでした"
         print(tenki)
         reply=f"{tenki}"
         self.yomiage(reply)
@@ -256,10 +261,10 @@ def run():
     config=json.load(open(os.path.join(dir_name,"config.json")))
     c=Control(switchbot.devices,switchbot.scenes,custom_devices,custom_scenes,config["chromecasts"]["friendly_names"])
     s=Services(config["apikeys"]["weather_api_key"],config["location"])
-    voice=Voice(c.devices_name,c.custom_devices,c,s,config["apikeys"]["wit_token"])
+    voice=Voice(c.devices_name,c.custom_devices,c,s,config["apikeys"]["wit_token"],config["url"]["server_url"])
     c.yomiage=voice.yomiage
     s.yomiage=voice.yomiage
-    voice.words.extend(["電気","天気","再生","停止","止めて","音","スキップ","戻"])
+    voice.words.extend(["電気","天気","再生","停止","止めて","ストップ","音","スキップ","戻","飛ばし","早送り","早戻し","秒","分"])
     voice.always_on_voice()
 if __name__=="__main__":
     run()
