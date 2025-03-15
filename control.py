@@ -21,8 +21,8 @@ def main(page:flet.Page):
             page.update()
             await asyncio.sleep(1)
 
-    async def back():
-        await asyncio.sleep(30)
+    async def back(seconds=30):
+        await asyncio.sleep(seconds)
         page.go("/")
     async def listen():
         import json
@@ -31,12 +31,12 @@ def main(page:flet.Page):
         custom_scenes=json.load(open(os.path.join(dir_name,"custom_scenes.json")))
         custom_devices=json.load(open(os.path.join(dir_name,"custom_devices.json")))
         config=json.load(open(os.path.join(dir_name,"config.json")))
-        c=voice_control.Control(switchbot.devices,switchbot.scenes,custom_devices,custom_scenes)
+        c=voice_control.Control(switchbot.devices,switchbot.scenes,custom_devices,custom_scenes,config["chromecasts"]["friendly_names"])
         s=voice_control.Services(config["apikeys"]["weather_api_key"],config["location"])
-        voice=voice_control.Voice(c.devices_name,c.custom_devices,c,s,config["apikeys"]["wit_token"])
+        voice=voice_control.Voice(c.devices_name,c.custom_devices,c,s,config["apikeys"]["wit_token"],config["url"]["server_url"])
         c.yomiage=voice.yomiage
         s.yomiage=voice.yomiage
-        voice.words.extend(["電気","天気","再生","停止","止めて","音"])
+        voice.words.extend(["電気","天気","再生","停止","止めて","ストップ","音","スキップ","戻","飛ばし","早送り","早戻し","秒","分"])
         def run():
             voice.always_on_voice()
         try:
@@ -53,11 +53,12 @@ def main(page:flet.Page):
                     reply.value=voice.reply
                     text=voice.text
                     page.update()
-                    if not "わかりません" in reply.value:
-                        await asyncio.sleep(30)
                     if task:
                         task.cancel()
-                    task=asyncio.create_task(back())
+                    if "わかりません" in voice.reply:
+                        task=asyncio.create_task(back(3))
+                    else:
+                        task=asyncio.create_task(back(30))
                 await asyncio.sleep(1)
     def route(e):
         page.views.clear()
