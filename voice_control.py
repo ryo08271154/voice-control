@@ -12,6 +12,7 @@ import datetime
 import pychromecast
 import time
 import unicodedata
+import numpy as np
 dir_name=os.path.dirname(__file__)
 class Voice:
     def __init__(self,devices_name,custom_devices,control,service,wit_token,url=""):
@@ -36,11 +37,19 @@ class Voice:
                         channels=1,
                         rate=16000,  # 16kHz に変更
                         input=True,
-                        frames_per_buffer=4000)  # バッファサイズを適切に設定
+                        frames_per_buffer=2048)  # バッファサイズを適切に設定
         while True:
             try:
                 if self.mute==False:
-                    data=stream.read(4000,exception_on_overflow=False)
+                    data=stream.read(2048,exception_on_overflow=False)
+                    # NumPy を使ってバイナリデータを int16 に変換
+                    audio_data = np.frombuffer(data, dtype=np.int16)
+
+                    # 音量を 増幅（クリップを防ぐために np.clip を使用）
+                    audio_data = np.clip(audio_data * 2.0, -32768, 32767).astype(np.int16)
+
+                    # 増幅したデータをバイト形式に戻す
+                    data = audio_data.tobytes()
                     if self.recognizer.AcceptWaveform(data):
                         self.text=json.loads(self.recognizer.Result())["text"]
                         if self.text!="":
@@ -97,7 +106,6 @@ class Voice:
     def yomiage(self,text=""):
         start=""
         self.reply=text
-        self.mute=True
         if "実行" in text:
             start="execute"
         if "オン" in text:
@@ -106,6 +114,9 @@ class Voice:
             start="off"
         if start!="":
             text=""
+            self.mute=False
+        else:
+            self.mute=True
         requests.post(self.url,json={"message":text,"start":start,"end":""})
         self.mute=False
 class Control:
@@ -240,7 +251,7 @@ class Services:
             tenki="いつの天気を教えてほしいかわかりませんでした"
         elif datetime.datetime.now().day==date.day:
             weather_json=requests.get(f"https://api.openweathermap.org/data/2.5/weather?lat={self.location['latitude']}&lon={self.location['longitude']}&lang=ja&units=metric&appid={self.weatherapikey}").json()
-            tenki=f"今日の気温は{weather_json['main']['temp']}℃ 天気は{weather_json['weather'][0]['description']}です"
+            tenki=f"現在の気温は{weather_json['main']['temp']}℃ 天気は{weather_json['weather'][0]['description']}です"
         else:
             weather_json=requests.get(f"https://api.openweathermap.org/data/2.5/forecast?lat={self.location['latitude']}&lon={self.location['longitude']}&lang=ja&units=metric&appid={self.weatherapikey}").json()
             get_date=datetime.datetime.strftime(date,"%Y-%m-%d")
