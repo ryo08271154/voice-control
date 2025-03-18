@@ -11,9 +11,9 @@ def header():
     # Declare empty header dictionary
     apiHeader = {}
     # open token
-    token = os.getenv("SWITCHBOT_TOKEN") # copy and paste from the SwitchBot app V6.14 or later
+    token = json.load(open(os.path.join(dir_name,"config.json")))["apikeys"]["switchbot_token"] # copy and paste from the SwitchBot app V6.14 or later
     # secret key
-    secret = os.getenv("SWITCHBOT_SECRET") # copy and paste from the SwitchBot app V6.14 or later
+    secret = json.load(open(os.path.join(dir_name,"config.json")))["apikeys"]["switchbot_secret"] # copy and paste from the SwitchBot app V6.14 or later
     nonce = uuid.uuid4()
     t = int(round(time.time() * 1000))
     string_to_sign = '{}{}{}'.format(token, t, nonce)
