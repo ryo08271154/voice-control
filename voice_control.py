@@ -13,9 +13,10 @@ import pychromecast
 import time
 import unicodedata
 import numpy as np
+import google.generativeai as genai
 dir_name=os.path.dirname(__file__)
 class Voice:
-    def __init__(self,devices_name,custom_devices,control,service,wit_token,url=""):
+    def __init__(self,devices_name,custom_devices,control,service,wit_token,genai_apikey,url=""):
         self.words=[]
         self.devices_name=devices_name
         self.custom_devices_name=[i["deviceName"] for i in custom_devices["deviceList"]]
@@ -24,6 +25,8 @@ class Voice:
         self.control=control
         self.service=service
         self.wit_token=wit_token
+        self.genai_apikey=genai_apikey
+        genai.configure(api_key=self.genai_apikey)
         self.url=url
         self.reply=""
         self.text=""
@@ -42,14 +45,6 @@ class Voice:
             try:
                 if self.mute==False:
                     data=stream.read(2048,exception_on_overflow=False)
-                    # NumPy を使ってバイナリデータを int16 に変換
-                    audio_data = np.frombuffer(data, dtype=np.int16)
-
-                    # 音量を 増幅（クリップを防ぐために np.clip を使用）
-                    audio_data = np.clip(audio_data * 2.0, -32768, 32767).astype(np.int16)
-
-                    # 増幅したデータをバイト形式に戻す
-                    data = audio_data.tobytes()
                     if self.recognizer.AcceptWaveform(data):
                         self.text=json.loads(self.recognizer.Result())["text"]
                         if self.text!="":
@@ -89,6 +84,8 @@ class Voice:
             if r['intents'][0]['name']=='Skip':
                 second=sum(i.get("Second",0)for i in r["entities"].get("wit$duration:duration",[{}]))
                 self.control.back_or_skip("Skip",second)
+            if r['intents'][0]['name']=='ai':
+                self.ai(text)
         return action
     def command(self,text):
         self.reply=""
@@ -103,6 +100,15 @@ class Voice:
             self.control.switchbot_scene_control(text)
         if self.reply=="":
             self.reply="よくわかりませんでした"
+    def ai(self,text):
+        print("AIが回答します")
+        try:
+            model = genai.GenerativeModel("gemini-1.5-flash-8b",system_instruction="あなたは3文以下で回答する音声アシスタント",generation_config={"max_output_tokens": 50})
+            response = model.generate_content(text).text.replace("\n","")
+        except:
+            response="エラーが発生しました"
+        print(response)
+        self.yomiage(response)
     def yomiage(self,text=""):
         start=""
         self.reply=text
@@ -272,10 +278,10 @@ def run():
     config=json.load(open(os.path.join(dir_name,"config.json")))
     c=Control(switchbot.devices,switchbot.scenes,custom_devices,custom_scenes,config["chromecasts"]["friendly_names"])
     s=Services(config["apikeys"]["weather_api_key"],config["location"])
-    voice=Voice(c.devices_name,c.custom_devices,c,s,config["apikeys"]["wit_token"],config["url"]["server_url"])
+    voice=Voice(c.devices_name,c.custom_devices,c,s,config["apikeys"]["wit_token"],config["apikeys"]["genai"],config["url"]["server_url"])
     c.yomiage=voice.yomiage
     s.yomiage=voice.yomiage
-    voice.words.extend(["電気","天気","再生","停止","止めて","ストップ","音","スキップ","戻","飛ばし","早送り","早戻し","秒","分"])
+    voice.words.extend(["電気","天気","再生","停止","止めて","ストップ","音","スキップ","戻","飛ばし","早送り","早戻し","秒","分","教","何","ですか","なに","とは","について","ますか"])
     voice.always_on_voice()
 if __name__=="__main__":
     run()
