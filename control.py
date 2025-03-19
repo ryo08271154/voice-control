@@ -47,16 +47,19 @@ def main(page:flet.Page):
         text=""
         task=None
         while True:
-                if voice.text!=text and voice.reply!="":
-                    page.go("/voice")
+                if voice.text!=text and voice.reply!="" and not "わかりません"in voice.reply:
                     talk_text.value=voice.text
                     reply.value=voice.reply
                     text=voice.text
+                    for name in ["ライト","テレビ"]:
+                        if name in voice.reply:
+                            page.go("/device_control")
+                            break
+                    else:
+                        page.go("/voice")
                     page.update()
                     if task:
                         task.cancel()
-                    if "わかりません" in voice.reply:
-                        task=asyncio.create_task(back(3))
                     else:
                         task=asyncio.create_task(back(30))
                 await asyncio.sleep(1)
@@ -65,6 +68,30 @@ def main(page:flet.Page):
             page.window.full_screen=True
         else:
             page.window.full_screen=False
+    def control():
+        icon=""
+        color=""
+        device_name=""
+        action=""
+        if "ライト" in voice.reply:
+            icon=flet.Icons.LIGHTBULB
+            device_name=["ライト"]
+        if "テレビ" in voice.reply:
+            icon=flet.Icons.TV
+            device_name=["テレビ"]
+        if "エアコン" in voice.reply:
+            icon=flet.Icons.THERMOSTAT
+            device_name=["エアコン"]
+        if "オン" in voice.reply:
+            color=flet.Colors.BLUE
+            action="turnOff"
+        if "オフ" in voice.reply:
+            color=flet.Colors.RED
+            action="turnOn"
+        return icon,color,device_name,action
+    def device_control(device_name,action):
+        c.custom_device_control(device_name,action)
+        c.switchbot_device_control(device_name,action)
     def route(e):
         page.views.clear()
 
@@ -82,6 +109,11 @@ def main(page:flet.Page):
         if page.route=="/menu":
             page.views.append(flet.View("/menu",[flet.ElevatedButton("ホーム",on_click=lambda e:page.go("/")),
                                             flet.ElevatedButton("フルスクリーン解除", on_click=voice_screen),
+                                        ]))
+        if page.route=="/device_control":
+            icon,color,device_name,action=control()
+            page.views.append(flet.View("/device_control",[flet.ElevatedButton("ホーム",on_click=lambda e:page.go("/")),
+                                                           flet.Container(content=flet.IconButton(icon,icon_size=100,on_click=lambda e:device_control(device_name,action),icon_color=color,expand=True,alignment=flet.alignment.center),alignment=flet.alignment.center),
                                         ]))
         page.update()
     def test(e):
