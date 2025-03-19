@@ -60,6 +60,11 @@ def main(page:flet.Page):
                     else:
                         task=asyncio.create_task(back(30))
                 await asyncio.sleep(1)
+    def voice_screen(e):
+        if page.window.full_screen==False:
+            page.window.full_screen=True
+        else:
+            page.window.full_screen=False
     def route(e):
         page.views.clear()
 
@@ -76,6 +81,7 @@ def main(page:flet.Page):
                                 ],))
         if page.route=="/menu":
             page.views.append(flet.View("/menu",[flet.ElevatedButton("ホーム",on_click=lambda e:page.go("/")),
+                                            flet.ElevatedButton("フルスクリーン解除", on_click=voice_screen),
                                         ]))
         page.update()
     def test(e):
@@ -87,5 +93,6 @@ def main(page:flet.Page):
     page.run_task(time_update)
     page.run_task(listen)
     page.run_task(always_on_voice)
+    page.window.full_screen=True
     page.go(page.route)
-flet.app(target=main,port=5000)
+flet.app(target=main)
