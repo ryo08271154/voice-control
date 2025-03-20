@@ -27,6 +27,8 @@ class Voice:
         self.wit_token=wit_token
         self.genai_apikey=genai_apikey
         genai.configure(api_key=self.genai_apikey)
+        self.model = genai.GenerativeModel("gemini-1.5-flash-8b",system_instruction="あなたは3文以下で回答する音声アシスタントです",generation_config={"max_output_tokens": 50})
+        self.chat=self.model.start_chat(history=[])
         self.url=url
         self.reply=""
         self.text=""
@@ -85,7 +87,7 @@ class Voice:
                 second=sum(i.get("Second",0)for i in r["entities"].get("wit$duration:duration",[{}]))
                 self.control.back_or_skip("Skip",second)
             if r['intents'][0]['name']=='ai':
-                self.ai(text)
+                self.ai(text,r["entities"])
         return action
     def command(self,text):
         self.reply=""
@@ -100,11 +102,13 @@ class Voice:
             self.control.switchbot_scene_control(text)
         if self.reply=="":
             self.reply="よくわかりませんでした"
-    def ai(self,text):
+    def ai(self,text,entities):
         print("AIが回答します")
+        for name in entities:
+            for e in entities[name]:
+                text=text.replace(e["body"],f'{e["body"]}({str(e["value"])})')
         try:
-            model = genai.GenerativeModel("gemini-1.5-flash-8b",system_instruction="あなたは3文以下で回答する音声アシスタント",generation_config={"max_output_tokens": 50})
-            response = model.generate_content(text).text.replace("\n","")
+            response = self.chat.send_message(text).text.replace("\n","")
         except:
             response="エラーが発生しました"
         print(response)
