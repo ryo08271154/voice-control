@@ -8,6 +8,24 @@ import threading
 import random
 devices=switchbot.devices
 scenes=switchbot.scenes
+def listen():
+    import json
+    dir_name=os.path.dirname(__file__)
+    global voice,c
+    custom_scenes=json.load(open(os.path.join(dir_name,"custom_scenes.json")))
+    custom_devices=json.load(open(os.path.join(dir_name,"custom_devices.json")))
+    config=json.load(open(os.path.join(dir_name,"config.json")))
+    c=voice_control.Control(switchbot.devices,switchbot.scenes,custom_devices,custom_scenes,config["chromecasts"]["friendly_names"])
+    s=voice_control.Services(config["apikeys"]["weather_api_key"],config["location"])
+    voice=voice_control.Voice(c.devices_name,c.custom_devices,c,s,config["apikeys"]["wit_token"],config["apikeys"]["genai"],config["url"]["server_url"])
+    c.yomiage=voice.yomiage
+    s.yomiage=voice.yomiage
+    voice.words.extend(["電気","天気","再生","停止","止めて","ストップ","音","スキップ","戻","飛ばし","早送り","早戻し","秒","分","教","何","ですか","なに","とは","について","ますか","?","？"])
+    def run():
+        voice.always_on_voice()
+    try:
+        run()
+    except:pass
 def main(page:flet.Page):
     def menu(e):
         page.go("/menu")
@@ -28,24 +46,6 @@ def main(page:flet.Page):
             page.go("/")
         except asyncio.CancelledError:
             pass
-    async def listen():
-        import json
-        dir_name=os.path.dirname(__file__)
-        global voice,c
-        custom_scenes=json.load(open(os.path.join(dir_name,"custom_scenes.json")))
-        custom_devices=json.load(open(os.path.join(dir_name,"custom_devices.json")))
-        config=json.load(open(os.path.join(dir_name,"config.json")))
-        c=voice_control.Control(switchbot.devices,switchbot.scenes,custom_devices,custom_scenes,config["chromecasts"]["friendly_names"])
-        s=voice_control.Services(config["apikeys"]["weather_api_key"],config["location"])
-        voice=voice_control.Voice(c.devices_name,c.custom_devices,c,s,config["apikeys"]["wit_token"],config["apikeys"]["genai"],config["url"]["server_url"])
-        c.yomiage=voice.yomiage
-        s.yomiage=voice.yomiage
-        voice.words.extend(["電気","天気","再生","停止","止めて","ストップ","音","スキップ","戻","飛ばし","早送り","早戻し","秒","分","教","何","ですか","なに","とは","について","ますか","?","？"])
-        def run():
-            voice.always_on_voice()
-        try:
-            await asyncio.to_thread(run)
-        except:pass
     async def always_on_voice():
         global voice
         text=""
@@ -149,8 +149,9 @@ def main(page:flet.Page):
     page.on_route_change=route
     page.on=menu
     page.run_task(time_update)
-    page.run_task(listen)
+    # page.run_task(listen)
     page.run_task(always_on_voice)
     page.window.full_screen=True
     page.go(page.route)
+threading.Thread(target=listen).start()
 flet.app(target=main,port=8000)
