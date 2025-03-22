@@ -67,7 +67,7 @@ def main(page:flet.Page):
         global voice
         talk_text.value=voice.text
         reply.value=voice.reply
-        for name in ["オン","オフ"]:
+        for name in ["をオン","をオフ"]:
             if name in voice.reply:
                 page.go("/device_control")
                 break
@@ -77,8 +77,10 @@ def main(page:flet.Page):
     def voice_screen(e):
         if page.window.full_screen==False:
             page.window.full_screen=True
+            page.window.skip_task_bar=True
         else:
             page.window.full_screen=False
+            page.window.skip_task_bar=True
         result()
     def control():
         icon=""
@@ -161,7 +163,8 @@ def main(page:flet.Page):
             page.run_task(always_on_voice)
             break
     page.window.full_screen=True
+    page.window.skip_task_bar=True
     page.go(page.route)
 l=threading.Thread(target=listen,daemon=True)
 l.start()
-flet.app(target=main,port=8000)
+flet.app(target=main,port=8000,view=flet.FLET_APP_WEB)
