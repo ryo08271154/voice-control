@@ -27,7 +27,7 @@ class Voice:
         self.wit_token=wit_token
         self.genai_apikey=genai_apikey
         genai.configure(api_key=self.genai_apikey)
-        self.model = genai.GenerativeModel("gemini-1.5-flash-8b",system_instruction="あなたは3文以下で回答する音声アシスタントです",generation_config={"max_output_tokens": 50})
+        self.model = genai.GenerativeModel("gemini-1.5-flash-8b",system_instruction="あなたは3簡潔に文以下で回答する音声アシスタントです",generation_config={"max_output_tokens": 100})
         self.chat=self.model.start_chat(history=[])
         self.url=url
         self.reply=""
@@ -43,15 +43,33 @@ class Voice:
                         rate=16000,  # 16kHz に変更
                         input=True,
                         frames_per_buffer=2048)  # バッファサイズを適切に設定
+        temp_text="temp"
+        temp_text_count=0
         while True:
             try:
-                if self.mute==False:
-                    data=stream.read(2048,exception_on_overflow=False)
-                    if self.recognizer.AcceptWaveform(data):
-                        self.text=json.loads(self.recognizer.Result())["text"]
+                data=stream.read(2048,exception_on_overflow=False)
+                if self.recognizer.AcceptWaveform(data):
+                    if temp_text_count<3:
                         if self.text!="":
-                            print(self.text)
+                            print("結果",self.text)
                             threading.Thread(target=self.command,args=(self.text,)).start()
+                    temp_text="temp"
+                    temp_text_count=0
+                    self.mute=False
+                    self.text=json.loads(self.recognizer.Result())["text"]
+                else:
+                    self.text=json.loads(self.recognizer.PartialResult())["partial"]
+                    if self.text!="":
+                        if self.text==temp_text:
+                            temp_text_count+=1
+                            if temp_text_count==3 and self.mute==False:
+                                self.mute=True
+                                self.text=temp_text
+                                print(self.text)
+                                threading.Thread(target=self.command,args=(self.text,)).start()
+                        else:
+                            temp_text=self.text
+                            temp_text_count=0
             except KeyboardInterrupt:
                 break
 
