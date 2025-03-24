@@ -62,11 +62,16 @@ class Voice:
                     if self.text!="":
                         if self.text==temp_text:
                             temp_text_count+=1
+                            data_int16 = np.frombuffer(data, dtype=np.int16) /32768.0
                             if temp_text_count==3 and self.mute==False:
-                                self.mute=True
-                                self.text=temp_text
-                                print(self.text)
-                                threading.Thread(target=self.command,args=(self.text,)).start()
+                                if data_int16.max()<0.03:
+                                    self.mute=True
+                                    self.text=temp_text
+                                    print(self.text)
+                                    threading.Thread(target=self.command,args=(self.text,)).start()
+                                else:
+                                    print(data_int16.max())
+                                    temp_text_count=0
                         else:
                             temp_text=self.text
                             temp_text_count=0
