@@ -14,6 +14,7 @@ import time
 import unicodedata
 import numpy as np
 import google.generativeai as genai
+import re
 dir_name=os.path.dirname(__file__)
 class Voice:
     def __init__(self,devices_name,custom_devices,control,service,wit_token,genai_apikey,url=""):
@@ -24,7 +25,7 @@ class Voice:
         self.words.extend(self.custom_devices_name)
         self.control=control
         self.service=service
-        self.wit_token=wit_token
+        self.wit_client=wit.Wit(wit_token)
         self.genai_apikey=genai_apikey
         genai.configure(api_key=self.genai_apikey)
         self.model = genai.GenerativeModel("gemini-1.5-flash-8b",system_instruction="あなたは3簡潔に文以下で回答する音声アシスタントです",generation_config={"max_output_tokens": 100})
@@ -49,7 +50,7 @@ class Voice:
             try:
                 data=stream.read(2048,exception_on_overflow=False)
                 if self.recognizer.AcceptWaveform(data):
-                    if temp_text_count<3:
+                    if temp_text_count<3 and self.mute==False:
                         if self.text!="":
                             print("結果",self.text)
                             threading.Thread(target=self.command,args=(self.text,)).start()
@@ -64,7 +65,7 @@ class Voice:
                             temp_text_count+=1
                             data_int16 = np.frombuffer(data, dtype=np.int16) /32768.0
                             if temp_text_count==3 and self.mute==False:
-                                if data_int16.max()<0.03:
+                                if data_int16.max()<0.05:
                                     self.mute=True
                                     self.text=temp_text
                                     print(self.text)
@@ -80,37 +81,63 @@ class Voice:
 
     def judge(self,text):
         action=None
-        client=wit.Wit(self.wit_token)
-        r=client.message(text)
-        if r['intents']:
-            if r['entities']:
-                if r['intents'][0]['name'] in ['turnOn','turnOff']:
-                    action=r['intents'][0]["name"]
-                    device_name=[i["value"] for i in r["entities"]["device_name:device_name"]]
-                    self.control.custom_device_control(device_name,action)
-                    self.control.switchbot_device_control(device_name,action)
-                if r['intents'][0]['name']=='weather':
-                    if r["entities"].get("wit$datetime:datetime"):
-                        action=datetime.datetime.fromisoformat(r["entities"]["wit$datetime:datetime"][0]["value"])
-                    self.service.weather(action)
-            if r['intents'][0]['name']=='Play':
-                self.control.media_control("Play")
-            if r['intents'][0]['name']=='Pause':
-                self.control.media_control("Pause")
-            if r['intents'][0]['name']=='Stop':
-                self.control.media_control("Stop")
-            if r['intents'][0]['name']=='volume_up':
-                self.control.volume_control("volume_up",r["entities"].get("wit$number:number",[{}])[0].get("value",1))
-            if r['intents'][0]['name']=='volume_down':
-                self.control.volume_control("volume_down",r["entities"].get("wit$number:number",[{}])[0].get("value",1))
-            if r['intents'][0]['name']=='Back':
-                second=sum(i.get("Second",0)for i in r["entities"].get("wit$duration:duration",[{}]))
-                self.control.back_or_skip("Back",second)
-            if r['intents'][0]['name']=='Skip':
-                second=sum(i.get("Second",0)for i in r["entities"].get("wit$duration:duration",[{}]))
-                self.control.back_or_skip("Skip",second)
-            if r['intents'][0]['name']=='ai':
-                self.ai(text,r["entities"])
+        if "つけ" in text:
+            device_name=[i for i in self.devices_name if i in text]
+            if device_name:
+                action="turnOn"
+        if "消し" in text or "けし" in text or "決して" in text:
+            device_name=[i for i in self.devices_name if i in text]
+            if device_name:
+                action="turnOff"
+        if "再生" in text:
+            action="Play"
+        if "一時停止" in text or "止めて" in text:
+            action="Pause"
+        if "停止" in text:
+            action="Stop"
+        if "音量" in text:
+            volume=re.sub(r"\D","",text)
+            if volume=="":
+                volume=1
+            if "上げ" in text:
+                action="volume_up"
+            if "下げ" in text:
+                action="volume_down"
+        if "教え" in text or "ついて" in text or "何" in text or "なに" in text:
+            num=re.sub(r"\D","",text)
+            if num=="":
+                entities_replace=[]
+                action="ai"
+        if action==None: #判別できなかったとき
+            r=self.wit_client.message(text)
+            if r['intents']:
+                action=r["intents"][0]["name"]
+                if r['entities']:
+                    if action in ['turnOn','turnOff']:
+                        device_name=[i["value"] for i in r["entities"]["device_name:device_name"]]
+                    if action=='weather':
+                        if r["entities"].get("wit$datetime:datetime"):
+                            action=datetime.datetime.fromisoformat(r["entities"]["wit$datetime:datetime"][0]["value"])
+                        self.service.weather(action)
+                    if action=="volume_up" or action=="volume_down":
+                        volume=r["entities"].get("wit$number:number",[{}])[0].get("value",1)
+                    if action=='ai':
+                        entities_replace=r["entities"]
+        if action in ['turnOn','turnOff']:
+            self.control.custom_device_control(device_name,action)
+            self.control.switchbot_device_control(device_name,action)
+        if action in ['Play','Pause','Stop']:
+            self.control.media_control(action)
+        if action in ['volume_up','volume_down']:
+            self.control.volume_control(action,int(volume))
+        if action=='Back':
+            second=sum(i.get("Second",0)for i in r["entities"].get("wit$duration:duration",[{}]))
+            self.control.back_or_skip("Back",second)
+        if action=='Skip':
+            second=sum(i.get("Second",0)for i in r["entities"].get("wit$duration:duration",[{}]))
+            self.control.back_or_skip("Skip",second)
+        if action=='ai':
+            self.ai(text,entities_replace)
         return action
     def command(self,text):
         self.reply=""
