@@ -179,14 +179,13 @@ class Voice:
             self.mute=True
         requests.post(self.url,json={"message":text,"start":start,"end":""})
         self.mute=False
-class Control:
-    def __init__(self,switchbotdevices,switchbotscenes,customdevices,customscenes,friendly_names=[],yomiage=None):
+class Control(Voice):
+    def __init__(self,switchbotdevices,switchbotscenes,customdevices,customscenes,friendly_names=[]):
         self.devices=switchbotdevices
         self.scenes=switchbotscenes
         self.custom_devices=customdevices
         self.custom_scenes=customscenes
         self.devices_name=[i["deviceName"] for i in self.devices["body"]["infraredRemoteList"]]
-        self.yomiage=yomiage
         self.chromecasts, self.browser = pychromecast.get_listed_chromecasts(friendly_names=friendly_names)
     def custom_device_control(self,text,action):
         for i in self.custom_devices["deviceList"]:
@@ -300,11 +299,10 @@ class Control:
                     switchbot.scene("早戻し")
                 if action=="Skip":
                     switchbot.scene("早送り")
-class Services:
-    def __init__(self,weatherapikey=None,location=None,yomiage=None):
+class Services(Voice):
+    def __init__(self,weatherapikey=None,location=None):
         self.weatherapikey=weatherapikey
         self.location=location
-        self.yomiage=yomiage
     def weather(self,date):
         tenki=""
         if not date:
@@ -333,8 +331,6 @@ def run():
     c=Control(switchbot.devices,switchbot.scenes,custom_devices,custom_scenes,config["chromecasts"]["friendly_names"])
     s=Services(config["apikeys"]["weather_api_key"],config["location"])
     voice=Voice(c.devices_name,c.custom_devices,c,s,config["apikeys"]["wit_token"],config["apikeys"]["genai"],config["url"]["server_url"])
-    c.yomiage=voice.yomiage
-    s.yomiage=voice.yomiage
     voice.words.extend(["電気","天気","再生","停止","止めて","ストップ","音","スキップ","戻","飛ばし","早送り","早戻し","秒","分","教","何","ですか","なに","とは","について","ますか"])
     voice.always_on_voice()
 if __name__=="__main__":
