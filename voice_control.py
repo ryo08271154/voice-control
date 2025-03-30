@@ -164,10 +164,9 @@ class Voice:
             response = self.chat.send_message(text).text.replace("\n","")
         except:
             response="エラーが発生しました"
-        print(response)
         return response
-        # self.yomiage(response)
     def yomiage(self,text=""):
+        print(text)
         start=""
         if "実行" in text:
             start="execute"
@@ -200,12 +199,9 @@ class Control:
                         reply+=f"{i['deviceName']}をオンにします"
                     else:
                         reply+=f"{i['deviceName']}をオフにします"
-                    print("カスタムデバイス:",command)
                     subprocess.run(command)
                 else:
-                    print("わかりませんでした")
                     reply="なにをするかわかりませんでした"
-                # self.yomiage(reply)
         return reply
     def custom_scene_control(self,text):
         reply=""
@@ -214,15 +210,12 @@ class Control:
                 command=i["command"].split(" ")
                 for _ in range(text.count(i["sceneName"])):
                     reply+=f"{i['sceneName']}を実行します"
-                    print("カスタムシーン:",command)
                     subprocess.run(command)
-                # self.yomiage(reply)
         return reply
     def switchbot_device_control(self,text,action):
         reply=""
         for i in text:
             if i in self.devices_name:
-                print(action)
                 if action:
                     if action=="turnOn":
                         reply+=f"{i}をオンにします"
@@ -231,7 +224,6 @@ class Control:
                     switchbot.commands(i,action)
                 else:
                     reply="なにをするかわかりませんでした"
-                # self.yomiage(reply)
         return reply
     def switchbot_scene_control(self,text):
         reply=""
@@ -240,20 +232,19 @@ class Control:
                 for _ in range(text.count(i["sceneName"])):
                     reply+=f"{i['sceneName']}を実行します"
                     switchbot.scene(i["sceneName"])
-                # self.yomiage(reply)
         return reply
     def volume_control(self,action,up_down=1):
-        print(action,up_down)
         for cast in self.chromecasts:
             cast.wait()
             if cast.status.app_id!=None:
-                print(cast)
                 volume=cast.status.volume_level
                 try:
                     if action=="volume_up":
                         cast.set_volume(volume+(0.01*up_down))
+                        reply=f"音量を{up_down}上げます"
                     if action=="volume_down":
                         cast.set_volume(volume-(0.01*up_down))
+                        reply=f"音量を{up_down}下げます"
                 except:
                     print("音量操作できません")
                 break
@@ -261,10 +252,12 @@ class Control:
             for _ in range(up_down):
                 if action=="volume_up":
                     switchbot.commands("テレビ","volumeAdd")
+                    reply=f"音量を{up_down}上げます"
                 if action=="volume_down":
                     switchbot.commands("テレビ","volumeSub")
+                    reply=f"音量を{up_down}下げます"
+        return reply
     def media_control(self,action):
-        print(action)
         for cast in self.chromecasts:
             cast.wait()
             mc=cast.media_controller
@@ -273,23 +266,28 @@ class Control:
                 try:
                     if action=="Play":
                         mc.play()
+                        reply="再生します"
                     if action=="Pause":
                         mc.pause()
+                        reply="一時停止します"
                     if action=="Stop":
                         mc.stop()
+                        reply="停止します"
                 except:
                     print("メディア操作できません")
                 break
         else:
-            print("テレビ操作")
             if action=="Play":
                 switchbot.scene("再生")
+                reply="テレビを再生します"
             if action=="Pause":
                 switchbot.scene("一時停止")
+                reply="テレビを一時停止します"
             if action=="Stop":
                 switchbot.scene("停止")
+                reply="テレビを停止します"
+        return reply
     def back_or_skip(self,action,second=10):
-        print(action,second)
         for cast in self.chromecasts:
             cast.wait()
             mc=cast.media_controller
@@ -303,8 +301,10 @@ class Control:
                     mc.pause()
                     if action=="Back":
                         mc.seek(current_time-second)
+                        reply=f"{second}秒戻します"
                     if action=="Skip":
                         mc.seek(current_time+second)
+                        reply=f"{second}秒スキップします"
                 except:
                     print("メディア操作できません")
                 break
@@ -312,8 +312,11 @@ class Control:
             for _ in range(second//10):
                 if action=="Back":
                     switchbot.scene("早戻し")
+                    reply=f"{second}秒戻します"
                 if action=="Skip":
                     switchbot.scene("早送り")
+                    reply=f"{second}秒スキップします"
+        return reply
 class Services:
     def __init__(self,weatherapikey=None,location=None):
         self.weatherapikey=weatherapikey
@@ -336,10 +339,8 @@ class Services:
                     break
             else:
                 tenki="天気情報が見つかりませんでした"
-        print(tenki)
         reply=f"{tenki}"
         return reply
-        # self.yomiage(reply)
 def run():
     custom_scenes=json.load(open(os.path.join(dir_name,"custom_scenes.json")))
     custom_devices=json.load(open(os.path.join(dir_name,"custom_devices.json")))
