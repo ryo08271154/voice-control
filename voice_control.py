@@ -17,7 +17,7 @@ import google.generativeai as genai
 import re
 dir_name=os.path.dirname(__file__)
 class Voice:
-    def __init__(self,devices_name,custom_devices,control,service,wit_token,genai_apikey,url=""):
+    def __init__(self,devices_name,custom_devices,control,service,wit_token,genai_apikey,genai_config,url=""):
         self.words=[]
         self.devices_name=devices_name
         self.custom_devices_name=[i["deviceName"] for i in custom_devices["deviceList"]]
@@ -27,7 +27,7 @@ class Voice:
         self.service=service
         self.wit_client=wit.Wit(wit_token)
         genai.configure(api_key=genai_apikey)
-        self.model = genai.GenerativeModel("gemini-1.5-flash-8b",system_instruction="あなたは3簡潔に文以下で回答する音声アシスタントです",generation_config={"max_output_tokens": 100})
+        self.model = genai.GenerativeModel(model_name=genai_config["model_name"],system_instruction=genai_config["system_instruction"],generation_config={"max_output_tokens": 100})
         self.chat=self.model.start_chat(history=[])
         self.url=url
         self.reply=""
@@ -351,7 +351,7 @@ def run():
     config=json.load(open(os.path.join(dir_name,"config.json")))
     c=Control(switchbot.devices,switchbot.scenes,custom_devices,custom_scenes,config["chromecasts"]["friendly_names"])
     s=Services(config["apikeys"]["weather_api_key"],config["location"])
-    voice=Voice(c.devices_name,c.custom_devices,c,s,config["apikeys"]["wit_token"],config["apikeys"]["genai"],config["url"]["server_url"])
+    voice=Voice(c.devices_name,c.custom_devices,c,s,config["apikeys"]["wit_token"],config["apikeys"]["genai"],config["genai"],config["url"]["server_url"])
     voice.words.extend(["電気","天気","再生","停止","止めて","ストップ","音","スキップ","戻","飛ばし","早送り","早戻し","秒","分","教","何","ですか","なに","とは","について","ますか"])
     voice.always_on_voice()
 if __name__=="__main__":
