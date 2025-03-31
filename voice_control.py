@@ -26,8 +26,7 @@ class Voice:
         self.control=control
         self.service=service
         self.wit_client=wit.Wit(wit_token)
-        self.genai_apikey=genai_apikey
-        genai.configure(api_key=self.genai_apikey)
+        genai.configure(api_key=genai_apikey)
         self.model = genai.GenerativeModel("gemini-1.5-flash-8b",system_instruction="あなたは3簡潔に文以下で回答する音声アシスタントです",generation_config={"max_output_tokens": 100})
         self.chat=self.model.start_chat(history=[])
         self.url=url
@@ -106,6 +105,10 @@ class Voice:
             if num=="":
                 entities_replace=[]
                 action="ai"
+        if ("今" in text or "現在" in text or "何" in text or "なん" in text) and ("時" in text):
+            action="now_time"
+        if ("今" in text or "現在" in text or "何" in text or "なん" in text) and ("年" in text or "月" in text or"日" in text):
+            action="now_day"
         if action==None: #判別できなかったとき
             r=self.wit_client.message(text)
             if r['intents']:
@@ -136,6 +139,10 @@ class Voice:
             response=self.control.back_or_skip("Skip",second)
         if action=='ai':
             response=self.ai(text,entities_replace)
+        if action=='now_time':
+            response=datetime.datetime.now().strftime("%H時%M分です")
+        if action=='now_day':
+            response=datetime.datetime.now().strftime("%Y年%m月%d日です")
         return response
     def command(self,text):
         self.reply=""
