@@ -26,8 +26,7 @@ class Voice:
         self.control=control
         self.service=service
         self.wit_client=wit.Wit(wit_token)
-        self.genai_apikey=genai_apikey
-        genai.configure(api_key=self.genai_apikey)
+        genai.configure(api_key=genai_apikey)
         self.model = genai.GenerativeModel("gemini-1.5-flash-8b",system_instruction="あなたは3簡潔に文以下で回答する音声アシスタントです",generation_config={"max_output_tokens": 100})
         self.chat=self.model.start_chat(history=[])
         self.url=url
@@ -52,7 +51,7 @@ class Voice:
                 if self.recognizer.AcceptWaveform(data):
                     if temp_text_count<3 and self.mute==False:
                         if self.text!="":
-                            print("結果",self.text)
+                            print("認識結果:",self.text)
                             threading.Thread(target=self.command,args=(self.text,)).start()
                     temp_text="temp"
                     temp_text_count=0
@@ -60,19 +59,16 @@ class Voice:
                     self.text=json.loads(self.recognizer.Result())["text"]
                 else:
                     self.text=json.loads(self.recognizer.PartialResult())["partial"]
+                    data_int16 = np.frombuffer(data, dtype=np.int16) /32768.0
+                    if data_int16.max()>0.05:
+                        temp_text_count=0
                     if self.text!="":
                         if self.text==temp_text:
                             temp_text_count+=1
-                            data_int16 = np.frombuffer(data, dtype=np.int16) /32768.0
                             if temp_text_count==3 and self.mute==False:
-                                if data_int16.max()<0.05:
-                                    self.mute=True
-                                    self.text=temp_text
-                                    print(self.text)
-                                    threading.Thread(target=self.command,args=(self.text,)).start()
-                                else:
-                                    print(data_int16.max())
-                                    temp_text_count=0
+                                self.mute=True
+                                print(self.text)
+                                threading.Thread(target=self.command,args=(self.text,)).start()
                         else:
                             temp_text=self.text
                             temp_text_count=0
@@ -81,12 +77,13 @@ class Voice:
 
     def judge(self,text):
         action=None
-        if "つけ" in text:
-            device_name=[i for i in self.devices_name if i in text]
+        response=""
+        if "つけ" in text or "付け" in text or "オン" in text:
+            device_name=[i for i in self.devices_name if i in text]+[ i for i in self.custom_devices_name if i in text]
             if device_name:
                 action="turnOn"
-        if "消し" in text or "けし" in text or "決して" in text:
-            device_name=[i for i in self.devices_name if i in text]
+        if "消し" in text or "けし" in text or "決して" in text or "オフ" in text:
+            device_name=[i for i in self.devices_name if i in text]+[ i for i in self.custom_devices_name if i in text]
             if device_name:
                 action="turnOff"
         if "再生" in text:
@@ -108,50 +105,60 @@ class Voice:
             if num=="":
                 entities_replace=[]
                 action="ai"
+        if ("今" in text or "現在" in text or "何" in text or "なん" in text) and ("時" in text):
+            action="now_time"
+        if ("今" in text or "現在" in text or "何" in text or "なん" in text) and ("年" in text or "月" in text or"日" in text):
+            action="now_day"
         if action==None: #判別できなかったとき
             r=self.wit_client.message(text)
             if r['intents']:
                 action=r["intents"][0]["name"]
                 if r['entities']:
                     if action in ['turnOn','turnOff']:
-                        device_name=[i["value"] for i in r["entities"]["device_name:device_name"]]
+                        device_name=[i.get("value","") for i in r["entities"].get("device_name:device_name",{})]
                     if action=='weather':
                         if r["entities"].get("wit$datetime:datetime"):
                             action=datetime.datetime.fromisoformat(r["entities"]["wit$datetime:datetime"][0]["value"])
-                        self.service.weather(action)
+                        response=self.service.weather(action)
                     if action=="volume_up" or action=="volume_down":
                         volume=r["entities"].get("wit$number:number",[{}])[0].get("value",1)
                     if action=='ai':
                         entities_replace=r["entities"]
         if action in ['turnOn','turnOff']:
-            self.control.custom_device_control(device_name,action)
-            self.control.switchbot_device_control(device_name,action)
+            response+=self.control.custom_device_control(device_name,action)
+            response+=self.control.switchbot_device_control(device_name,action)
         if action in ['Play','Pause','Stop']:
-            self.control.media_control(action)
+            response=self.control.media_control(action)
         if action in ['volume_up','volume_down']:
-            self.control.volume_control(action,int(volume))
+            response=self.control.volume_control(action,int(volume))
         if action=='Back':
             second=sum(i.get("Second",0)for i in r["entities"].get("wit$duration:duration",[{}]))
-            self.control.back_or_skip("Back",second)
+            response=self.control.back_or_skip("Back",second)
         if action=='Skip':
             second=sum(i.get("Second",0)for i in r["entities"].get("wit$duration:duration",[{}]))
-            self.control.back_or_skip("Skip",second)
+            response=self.control.back_or_skip("Skip",second)
         if action=='ai':
-            self.ai(text,entities_replace)
-        return action
+            response=self.ai(text,entities_replace)
+        if action=='now_time':
+            response=datetime.datetime.now().strftime("%H時%M分です")
+        if action=='now_day':
+            response=datetime.datetime.now().strftime("%Y年%m月%d日です")
+        return response
     def command(self,text):
         self.reply=""
         text=text.replace(" ","")
         text=unicodedata.normalize("NFKC",text)
         for i in self.words:
             if i in text:
-                self.judge(text)
+                self.reply=self.judge(text)
                 break
         else:
             self.control.custom_scene_control(text)
             self.control.switchbot_scene_control(text)
         if self.reply=="":
             self.reply="よくわかりませんでした"
+        else:
+            self.yomiage(self.reply)
     def ai(self,text,entities):
         print("AIが回答します")
         for name in entities:
@@ -161,11 +168,10 @@ class Voice:
             response = self.chat.send_message(text).text.replace("\n","")
         except:
             response="エラーが発生しました"
-        print(response)
-        self.yomiage(response)
+        return response
     def yomiage(self,text=""):
+        print(text)
         start=""
-        self.reply=text
         if "実行" in text:
             start="execute"
         if "オン" in text:
@@ -179,7 +185,7 @@ class Voice:
             self.mute=True
         requests.post(self.url,json={"message":text,"start":start,"end":""})
         self.mute=False
-class Control(Voice):
+class Control:
     def __init__(self,switchbotdevices,switchbotscenes,customdevices,customscenes,friendly_names=[]):
         self.devices=switchbotdevices
         self.scenes=switchbotscenes
@@ -188,57 +194,61 @@ class Control(Voice):
         self.devices_name=[i["deviceName"] for i in self.devices["body"]["infraredRemoteList"]]
         self.chromecasts, self.browser = pychromecast.get_listed_chromecasts(friendly_names=friendly_names)
     def custom_device_control(self,text,action):
+        reply=""
         for i in self.custom_devices["deviceList"]:
             if i["deviceName"] in text:
                 if action:
                     command=i[action].split(" ")
-                    if action=="turnOn":reply=f"{i['deviceName']}をオンにします"
-                    else:reply=f"{i['deviceName']}をオフにします"
-                    print("カスタムデバイス:",command)
+                    if action=="turnOn":
+                        reply+=f"{i['deviceName']}をオンにします"
+                    else:
+                        reply+=f"{i['deviceName']}をオフにします"
                     subprocess.run(command)
                 else:
-                    print("わかりませんでした")
                     reply="なにをするかわかりませんでした"
-                self.yomiage(reply)
+        return reply
     def custom_scene_control(self,text):
+        reply=""
         for i in self.custom_scenes["sceneList"]:
             if i["sceneName"] in text:
                 command=i["command"].split(" ")
                 for _ in range(text.count(i["sceneName"])):
-                    reply=f"{i['sceneName']}を実行します"
-                    print("カスタムシーン:",command)
+                    reply+=f"{i['sceneName']}を実行します"
                     subprocess.run(command)
-                self.yomiage(reply)
+        return reply
     def switchbot_device_control(self,text,action):
+        reply=""
         for i in text:
             if i in self.devices_name:
-                print(action)
                 if action:
-                    if action=="turnOn":reply=f"{i}をオンにします"
-                    else:reply=f"{i}をオフにします"
+                    if action=="turnOn":
+                        reply+=f"{i}をオンにします"
+                    else:
+                        reply+=f"{i}をオフにします"
                     switchbot.commands(i,action)
                 else:
                     reply="なにをするかわかりませんでした"
-                self.yomiage(reply)
+        return reply
     def switchbot_scene_control(self,text):
+        reply=""
         for i in self.scenes["body"]:
             if i["sceneName"] in text:
                 for _ in range(text.count(i["sceneName"])):
-                    reply=f"{i['sceneName']}を実行します"
+                    reply+=f"{i['sceneName']}を実行します"
                     switchbot.scene(i["sceneName"])
-                self.yomiage(reply)
+        return reply
     def volume_control(self,action,up_down=1):
-        print(action,up_down)
         for cast in self.chromecasts:
             cast.wait()
             if cast.status.app_id!=None:
-                print(cast)
                 volume=cast.status.volume_level
                 try:
                     if action=="volume_up":
                         cast.set_volume(volume+(0.01*up_down))
+                        reply=f"音量を{up_down}上げます"
                     if action=="volume_down":
                         cast.set_volume(volume-(0.01*up_down))
+                        reply=f"音量を{up_down}下げます"
                 except:
                     print("音量操作できません")
                 break
@@ -246,10 +256,12 @@ class Control(Voice):
             for _ in range(up_down):
                 if action=="volume_up":
                     switchbot.commands("テレビ","volumeAdd")
+                    reply=f"音量を{up_down}上げます"
                 if action=="volume_down":
                     switchbot.commands("テレビ","volumeSub")
+                    reply=f"音量を{up_down}下げます"
+        return reply
     def media_control(self,action):
-        print(action)
         for cast in self.chromecasts:
             cast.wait()
             mc=cast.media_controller
@@ -258,23 +270,28 @@ class Control(Voice):
                 try:
                     if action=="Play":
                         mc.play()
+                        reply="再生します"
                     if action=="Pause":
                         mc.pause()
+                        reply="一時停止します"
                     if action=="Stop":
                         mc.stop()
+                        reply="停止します"
                 except:
                     print("メディア操作できません")
                 break
         else:
-            print("テレビ操作")
             if action=="Play":
                 switchbot.scene("再生")
+                reply="テレビを再生します"
             if action=="Pause":
                 switchbot.scene("一時停止")
+                reply="テレビを一時停止します"
             if action=="Stop":
                 switchbot.scene("停止")
+                reply="テレビを停止します"
+        return reply
     def back_or_skip(self,action,second=10):
-        print(action,second)
         for cast in self.chromecasts:
             cast.wait()
             mc=cast.media_controller
@@ -288,8 +305,10 @@ class Control(Voice):
                     mc.pause()
                     if action=="Back":
                         mc.seek(current_time-second)
+                        reply=f"{second}秒戻します"
                     if action=="Skip":
                         mc.seek(current_time+second)
+                        reply=f"{second}秒スキップします"
                 except:
                     print("メディア操作できません")
                 break
@@ -297,9 +316,12 @@ class Control(Voice):
             for _ in range(second//10):
                 if action=="Back":
                     switchbot.scene("早戻し")
+                    reply=f"{second}秒戻します"
                 if action=="Skip":
                     switchbot.scene("早送り")
-class Services(Voice):
+                    reply=f"{second}秒スキップします"
+        return reply
+class Services:
     def __init__(self,weatherapikey=None,location=None):
         self.weatherapikey=weatherapikey
         self.location=location
@@ -321,9 +343,8 @@ class Services(Voice):
                     break
             else:
                 tenki="天気情報が見つかりませんでした"
-        print(tenki)
         reply=f"{tenki}"
-        self.yomiage(reply)
+        return reply
 def run():
     custom_scenes=json.load(open(os.path.join(dir_name,"custom_scenes.json")))
     custom_devices=json.load(open(os.path.join(dir_name,"custom_devices.json")))
