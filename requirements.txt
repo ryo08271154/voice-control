@@ -1,0 +1,12 @@
+flet==0.26.0
+flet-cli==0.26.0
+flet-desktop==0.26.0
+flet-web==0.26.0
+google-ai-generativelanguage==0.6.15
+google-generativeai==0.8.4
+numpy==2.1.1
+PyAudio==0.2.14
+PyChromecast==14.0.5
+requests==2.32.3
+vosk==0.3.45
+wit==6.0.1
