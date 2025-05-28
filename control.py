@@ -18,7 +18,7 @@ def listen():
     config=json.load(open(os.path.join(dir_name,"config.json")))
     c=voice_control.Control(switchbot.devices,switchbot.scenes,custom_devices,custom_scenes,config["chromecasts"]["friendly_names"])
     s=voice_control.Services(config["apikeys"]["weather_api_key"],config["location"])
-    voice=voice_control.Voice(c.devices_name,c.custom_devices,c,s,config["apikeys"]["wit_token"],config["apikeys"]["genai"],config["url"]["server_url"])
+    voice=voice_control.Voice(c.devices_name,c.custom_devices,c,s,config["apikeys"]["wit_token"],config["apikeys"]["genai"],config["genai"],config["url"]["server_url"])
     voice.words.extend(["電気","天気","再生","停止","止めて","ストップ","音","スキップ","戻","飛ばし","早送り","早戻し","秒","分","教","何","ですか","なに","とは","について","ますか","?","？"])
     def run():
         voice.always_on_voice()
