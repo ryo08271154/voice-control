@@ -9,28 +9,28 @@ import random
 devices=switchbot.devices
 scenes=switchbot.scenes
 voice=None
-def listen():
-    import json
-    dir_name=os.path.dirname(__file__)
-    global voice,c
-    custom_scenes=json.load(open(os.path.join(dir_name,"custom_scenes.json")))
-    custom_devices=json.load(open(os.path.join(dir_name,"custom_devices.json")))
-    config=json.load(open(os.path.join(dir_name,"config.json")))
-    c=voice_control.Control(switchbot.devices,switchbot.scenes,custom_devices,custom_scenes,config["chromecasts"]["friendly_names"])
-    s=voice_control.Services(config["apikeys"]["weather_api_key"],config["location"])
-    voice=voice_control.Voice(c.devices_name,c.custom_devices,c,s,config["apikeys"]["wit_token"],config["apikeys"]["genai"],config["genai"],config["url"]["server_url"])
-    voice.words.extend(["電気","天気","再生","停止","止めて","ストップ","音","スキップ","戻","飛ばし","早送り","早戻し","秒","分","教","何","ですか","なに","とは","について","ますか","?","？"])
-    def run():
-        voice.always_on_voice()
-    try:
-        run()
-    except:pass
 def main(page:flet.Page):
+    def listen():
+        import json
+        dir_name=os.path.dirname(__file__)
+        global voice,c
+        custom_scenes=json.load(open(os.path.join(dir_name,"custom_scenes.json")))
+        custom_devices=json.load(open(os.path.join(dir_name,"custom_devices.json")))
+        config=json.load(open(os.path.join(dir_name,"config.json")))
+        c=voice_control.Control(switchbot.devices,switchbot.scenes,custom_devices,custom_scenes,config["chromecasts"]["friendly_names"])
+        s=voice_control.Services(config["apikeys"]["weather_api_key"],config["location"])
+        voice=VoiceControl(c.devices_name,c.custom_devices,c,s,config["apikeys"]["wit_token"],config["apikeys"]["genai"],config["genai"],config["url"]["server_url"])
+        voice.words.extend(["電気","天気","再生","停止","止めて","ストップ","音","スキップ","戻","飛ばし","早送り","早戻し","秒","分","教","何","ですか","なに","とは","について","ますか","?","？"])
+        def run():
+            voice.always_on_voice()
+        try:
+            run()
+        except:pass
     def menu(e):
         page.go("/menu")
     page.theme_mode=flet.ThemeMode.DARK
     page.title="音声操作"
-    nowtime = flet.Text(datetime.datetime.now().strftime("%Y/%m/%d\n%H:%M:%S"), size=100,text_align=flet.TextAlign.CENTER)
+    nowtime = flet.Text(datetime.datetime.now().strftime("%Y/%m/%d\n%H:%M:%S"), size=100, text_align=flet.TextAlign.CENTER)
     talk_text=flet.Text("",size=50)
     reply=flet.Text("", size=100,text_align=flet.TextAlign.CENTER,expand=True)
     async def time_update():
@@ -45,22 +45,11 @@ def main(page:flet.Page):
             page.go("/")
         except asyncio.CancelledError:
             pass
-    async def always_on_voice():
-        global voice
-        text=""
-        reply=""
-        task=None
-        while True:
-                if voice.text!=text and voice.reply!=reply and not "わかりません"in voice.reply and voice.text!="" and voice.reply!="":
-                    text=voice.text
-                    reply=voice.reply
-                    result()
-                    page.update()
-                    if task:
-                        task.cancel()
-                    else:
-                        task=asyncio.create_task(back(30))
-                await asyncio.sleep(1)
+    class VoiceControl(voice_control.Voice):
+        def yomiage(self, text=""):
+            super().yomiage(text)
+            result()
+            page.run_task(back)
     def result():
         global voice
         talk_text.value=voice.text
@@ -71,7 +60,6 @@ def main(page:flet.Page):
                 break
         else:
             page.go("/voice")
-        page.update()
     def voice_screen(e):
         if page.window.full_screen==False:
             page.window.full_screen=True
@@ -79,7 +67,6 @@ def main(page:flet.Page):
         else:
             page.window.full_screen=False
             page.window.skip_task_bar=True
-        result()
     def control():
         icon=""
         color=""
@@ -105,12 +92,12 @@ def main(page:flet.Page):
         return icon,color,device_name,action
     def device_control(device_name,action):
         global voice
+        page.go("/")
         if action=="turnOn":
-            voice.reply=device_name+"オン"
+            set_action=device_name[0]+"オン"
         else:
-            voice.reply=device_name+"オフ"
-        c.custom_device_control(device_name,action)
-        c.switchbot_device_control(device_name,action)
+            set_action=device_name[0]+"オフ"
+        voice.command(set_action)
     def command(text):
         print(text)
         voice.text=text
@@ -133,8 +120,8 @@ def main(page:flet.Page):
                                             ],))
         if page.route=="/voice":
             page.views.append(flet.View("/voice",[flet.ElevatedButton("ホーム", on_click=lambda e:page.go("/")),
-                                talk_text,
-                                flet.Container(content=reply,expand=True,alignment=flet.alignment.center)
+                                                  flet.Container(content=talk_text, expand=True, alignment=flet.alignment.center),
+                                                  flet.Container(content=reply,expand=True,alignment=flet.alignment.center)
 
                                 ],scroll=flet.ScrollMode.HIDDEN))
         if page.route=="/menu":
@@ -156,13 +143,14 @@ def main(page:flet.Page):
     page.on=menu
     page.run_task(time_update)
     # page.run_task(listen)
-    while True:
-        if voice:
-            page.run_task(always_on_voice)
-            break
-    page.window.full_screen=True
+    l=threading.Thread(target=listen,daemon=True)
+    l.start()
     page.window.skip_task_bar=True
     page.go(page.route)
-l=threading.Thread(target=listen,daemon=True)
-l.start()
+    # while True:
+    #     if voice:
+    #         page.run_task(always_on_voice)
+            
+# l=threading.Thread(target=listen,daemon=True)
+# l.start()
 flet.app(target=main,port=8000,view=flet.FLET_APP_WEB)

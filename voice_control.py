@@ -105,9 +105,9 @@ class Voice:
             if num=="":
                 entities_replace=[]
                 action="ai"
-        if ("今" in text or "現在" in text or "何" in text or "なん" in text) and ("時" in text):
+        if ("今" in text or "現在" in text or "何" in text or "なん" in text) and ("時" in text) and not "天気" in text:
             action="now_time"
-        if ("今" in text or "現在" in text or "何" in text or "なん" in text) and ("年" in text or "月" in text or"日" in text):
+        if ("今" in text or "現在" in text or "何" in text or "なん" in text) and ("年" in text or "月" in text or"日" in text) and not "天気" in text:
             action="now_day"
         if action==None: #判別できなかったとき
             r=self.wit_client.message(text)
