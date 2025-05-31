@@ -147,10 +147,4 @@ def main(page:flet.Page):
     l.start()
     page.window.skip_task_bar=True
     page.go(page.route)
-    # while True:
-    #     if voice:
-    #         page.run_task(always_on_voice)
-            
-# l=threading.Thread(target=listen,daemon=True)
-# l.start()
 flet.app(target=main,port=8000,view=flet.FLET_APP_WEB)
