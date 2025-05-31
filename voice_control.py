@@ -15,6 +15,7 @@ import unicodedata
 import numpy as np
 import google.generativeai as genai
 import re
+from base_plugin import PluginManager
 dir_name=os.path.dirname(__file__)
 class Voice:
     def __init__(self,devices_name,custom_devices,control,service,wit_token,genai_apikey,genai_config,url=""):
@@ -35,6 +36,8 @@ class Voice:
         self.model=vosk.Model(os.path.join(dir_name,"vosk-model-ja"))
         self.recognizer = vosk.KaldiRecognizer(self.model, 16000)
         self.mute=False
+        self.plugin_manager=PluginManager()
+        self.plugins=self.plugin_manager.load_plugins()
     def always_on_voice(self):
         # PyAudioの設定
         p = pyaudio.PyAudio()
@@ -148,14 +151,19 @@ class Voice:
         self.reply=""
         text=text.replace(" ","")
         text=unicodedata.normalize("NFKC",text)
-        for i in self.words:
-            if i in text:
-                self.reply=self.judge(text)
+        for plugin in self.plugins:
+            if plugin.can_handle(text):
+                self.reply=plugin.execute(text)
                 break
         else:
-            self.control.custom_scene_control(text)
-            self.control.switchbot_scene_control(text)
-        if self.reply=="":
+            for i in self.words:
+                if i in text:
+                    self.reply=self.judge(text)
+                    break
+            else:
+                self.control.custom_scene_control(text)
+                self.control.switchbot_scene_control(text)
+        if self.reply=="" or self.reply==None:
             self.reply="よくわかりませんでした"
         else:
             self.yomiage(self.reply)
