@@ -89,7 +89,11 @@
        },
        "chromecasts": {
          "friendly_names": ["リビングのChromecast", "寝室のChromecast"]
-       }
+       },
+       "genai": {
+         "model_name":"gemini-1.5-flash-8b",
+         "system_instruction":"あなたは簡潔に3文以下で回答する音声アシスタントです"
+       },
      }
      ```
 
