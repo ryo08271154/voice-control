@@ -1,30 +1,26 @@
 import flet
 import datetime
 import asyncio
-import switchbot
 import voice_control
 import os
 import threading
 import random
-devices=switchbot.devices
-scenes=switchbot.scenes
 voice=None
 def main(page:flet.Page):
     def listen():
         import json
         dir_name=os.path.dirname(__file__)
         global voice,c
-        custom_scenes=json.load(open(os.path.join(dir_name,"custom_scenes.json")))
-        custom_devices=json.load(open(os.path.join(dir_name,"custom_devices.json")))
-        config=json.load(open(os.path.join(dir_name,"config.json")))
-        c=voice_control.Control(switchbot.devices,switchbot.scenes,custom_devices,custom_scenes,config["chromecasts"]["friendly_names"])
-        s=voice_control.Services(config["apikeys"]["weather_api_key"],config["location"])
-        voice=VoiceControl(c.devices_name,c.custom_devices,c,s,config["apikeys"]["wit_token"],config["apikeys"]["genai"],config["genai"],config["url"]["server_url"])
-        voice.words.extend(["電気","天気","再生","停止","止めて","ストップ","音","スキップ","戻","飛ばし","早送り","早戻し","秒","分","教","何","ですか","なに","とは","について","ますか","?","？"])
-        def run():
-            voice.always_on_voice()
+        custom_scenes=json.load(open(os.path.join(dir_name,"config","custom_scenes.json")))
+        custom_devices=json.load(open(os.path.join(dir_name,"config","custom_devices.json")))
+        config=json.load(open(os.path.join(dir_name,"config","config.json")))
+        c=voice_control.Control(custom_devices,custom_scenes)
+        voice=VoiceControl(c.custom_devices,c,config)
+        voice.words.extend(["教","何","ですか","なに","とは","について","ますか"])
+        def run(config):
+            voice.always_on_voice(config["vosk"]["model_path"])
         try:
-            run()
+            run(config)
         except:pass
     def menu(e):
         page.go("/menu")
@@ -45,7 +41,7 @@ def main(page:flet.Page):
             page.go("/")
         except asyncio.CancelledError:
             pass
-    class VoiceControl(voice_control.Voice):
+    class VoiceControl(voice_control.VoiceControl):
         def yomiage(self, text=""):
             super().yomiage(text)
             result()
