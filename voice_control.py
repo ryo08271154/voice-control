@@ -118,9 +118,8 @@ class VoiceControl(VoiceRecognizer):
         commands=[]
         for plugin in self.plugins:
             command=VoiceCommand(text)
-            if plugin.can_handle(text):
+            if plugin.can_handle(text) or plugin.is_plugin_mode:
                 try:
-                    print("OK")
                     command=plugin.execute(command)
                     commands.append(command)
                 except Exception as e:
