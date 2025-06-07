@@ -69,6 +69,7 @@ class VoiceControl(VoiceRecognizer):
         self.words.extend(self.custom_devices_name)
         self.control=control
         genai.configure(api_key=config["genai"]["apikey"])
+        self.config=config
         self.model = genai.GenerativeModel(model_name=config["genai"]["model_name"],system_instruction=config["genai"]["system_instruction"],generation_config={"max_output_tokens": 100})
         self.chat=self.model.start_chat(history=[])
         self.url=config["server"]["url"]
@@ -115,10 +116,11 @@ class VoiceControl(VoiceRecognizer):
         text=text.replace(" ","")
         text=unicodedata.normalize("NFKC",text)
         commands=[]
-        command=VoiceCommand(text)
         for plugin in self.plugins:
+            command=VoiceCommand(text)
             if plugin.can_handle(text):
                 try:
+                    print("OK")
                     command=plugin.execute(command)
                     commands.append(command)
                 except Exception as e:
@@ -131,8 +133,7 @@ class VoiceControl(VoiceRecognizer):
                         break
                 else:
                     self.control.custom_scene_control(text)
-        self.reply=command.reply_text
-        if not self.reply=="" or self.reply==None:
+        if commands or self.reply!="":
             self.yomiage(commands)
     def ai(self,text,entities):
         print("AIが回答します")
@@ -154,7 +155,7 @@ class VoiceControl(VoiceRecognizer):
                 self.mute=False
             else:
                 self.mute=True
-            requests.post(self.url,json={"message":text,"start":action})
+            requests.post(self.url,json={"message":text,self.config["server"]["action"]:action})
             self.mute=False
 class Control:
     def __init__(self,customdevices,customscenes):

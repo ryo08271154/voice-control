@@ -68,7 +68,6 @@ class Switchbot:
         return j
 
     def status(self,name):
-        self.get_device_list()
         apiHeader=self.header()
         # device =devices["body"]["deviceList"]
         for i in self.devices["body"]["deviceList"]:
@@ -82,7 +81,6 @@ class Switchbot:
         # print(j)
         return j
     def commands(self,name,onoff,c_type="command",parameter="default"):
-        self.get_device_list()
         command={}
         command["commandType"]=c_type
         command["command"]=onoff
@@ -99,7 +97,6 @@ class Switchbot:
         return j
         # print(devices)
     def scene(self,name):
-        self.get_scene_list()
         apiHeader=self.header()
         for i in self.scenes["body"]:
             if i["sceneName"]==name:
@@ -125,7 +122,7 @@ class SwitchbotPlugin(BasePlugin):
         switchbot_token=config.get("switchbot_token")
         switchbot_secret=config.get("switchbot_secret")
         if not switchbot_token or not switchbot_secret:
-            command.reply_text = "SwitchbotのAPIキーが設定されていません。"
+            command.reply_text = "SwitchBotのAPIキーが設定されていません。"
             return command
         elif "リスト更新" in text:
             switchbot.devices=switchbot.get_device_list()
@@ -136,7 +133,7 @@ class SwitchbotPlugin(BasePlugin):
                 if "オン" in text or "つけ" in text:
                     switchbot.commands(i["deviceName"],"turnOn")
                     command.reply_text+=f'{i["deviceName"]}をオンにします'
-                elif "オフ" in text or "消し" in text:
+                elif "オフ" in text or "消し" in text or "決して" in text:
                     switchbot.commands(i["deviceName"],"turnOff")
                     command.reply_text+=f'{i["deviceName"]}をオフにします'
         for i in switchbot.scenes["body"]:

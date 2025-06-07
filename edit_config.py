@@ -53,13 +53,14 @@ if __name__ == '__main__':
     else:
         config={}
         setup()
-    vosk_model_path=input("\r"+"VOSKのモデルパスを入力してください（モデルはVOSKのサイトからダウンロードしてください）:") or config.get("vosk",{}).get("model_path","")
+    print("音声認識にVOSKを使用しているため、VOSKのモデルをダウンロードしておく必要があります。")
+    vosk_model_path=input("VOSKのモデルパスを入力してください") or config.get("vosk",{}).get("model_path","")
     genai_apikey=input("GeminiのAPIキーを入力してください:") or config.get("genai",{}).get("apikey","")
-    genai_model=input("Geminiのモデル名を入力してください:") or config.get("genai",{}).get("model_name","")
-    genai_system_instruction=input("Geminiの指示を入力してください:") or config.get("genai",{}).get("system_instruction","")
+    genai_model=input("Geminiが使用するモデル名を入力してください:") or config.get("genai",{}).get("model_name","")
+    genai_system_instruction=input("Geminiのシステム指示を入力してください:") or config.get("genai",{}).get("system_instruction","")
     yomiage_server_url=input("音声読み上げサーバーのURLを入力してください:") or config.get("server",{}).get("url","")
     plugins,plugins_config=plugin_config()
-    config={"vosk":{"model_path":vosk_model_path},"genai":{"apikey":genai_apikey,"model_name":genai_model,"system_instruction":genai_system_instruction},"server":{"url":yomiage_server_url,"action":"execute","reply_text":"message"},"plugins":plugins,"plugins_config":plugins_config}
+    config={"vosk":{"model_path":vosk_model_path},"genai":{"apikey":genai_apikey,"model_name":genai_model,"system_instruction":genai_system_instruction},"server":{"url":yomiage_server_url,"action":config.get("server",{}).get("action","command"),"reply_text":config.get("server",{}).get("reply_text","message")},"plugins":plugins,"plugins_config":plugins_config}
     with open(f"{dir_name}/config/config.json","w") as f:
         json.dump(config,f,indent=2)
         print("設定が保存されました。")
