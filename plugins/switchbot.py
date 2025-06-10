@@ -133,11 +133,14 @@ class SwitchbotPlugin(BasePlugin):
                 if "オン" in text or "つけ" in text:
                     switchbot.commands(i["deviceName"],"turnOn")
                     command.reply_text+=f'{i["deviceName"]}をオンにします'
+                    command.action_type="turnOn"
                 elif "オフ" in text or "消し" in text or "決して" in text:
                     switchbot.commands(i["deviceName"],"turnOff")
                     command.reply_text+=f'{i["deviceName"]}をオフにします'
+                    command.action_type="turnOff"
         for i in switchbot.scenes["body"]:
             if i["sceneName"] in text:
                 switchbot.scene(i["sceneName"])
                 command.reply_text+=f'{i["sceneName"]}を実行します'
-        return command
+                command.action_type="scene"
+        return super().execute(command)

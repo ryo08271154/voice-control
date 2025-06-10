@@ -113,4 +113,4 @@ class ChromeCastPlugin(BasePlugin):
         elif action == "Skip":
             command.reply_text = self.chromecast.back_or_skip(action)
         command.action_type = action
-        return command
+        return super().execute(command)

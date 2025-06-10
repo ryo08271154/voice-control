@@ -50,7 +50,8 @@ class VoiceRecognizer:
                     data_int16 = np.frombuffer(data, dtype=np.int16) /32768.0
                     if data_int16.max()>0.05:
                         temp_text_count=0
-                    if self.text!="":
+                        temp_text="temp"
+                    elif self.text!="":
                         if self.text==temp_text:
                             temp_text_count+=1
                             if temp_text_count==3 and self.mute==False:
@@ -121,14 +122,15 @@ class VoiceControl(VoiceRecognizer):
             if plugin.can_handle(text) or plugin.is_plugin_mode:
                 try:
                     command=plugin.execute(command)
-                    commands.append(command)
+                    if command.reply_text!="":
+                        commands.append(command)
                 except Exception as e:
                     print(f"プラグイン {plugin.name} の実行中にエラーが発生しました: {e}")
         else:
             if not commands:
                 for i in self.words:
                     if i in text:
-                        self.reply=self.judge(command)
+                        commands.append(self.judge(command))
                         break
                 else:
                     self.control.custom_scene_control(text)
@@ -149,12 +151,13 @@ class VoiceControl(VoiceRecognizer):
             text=command.reply_text
             print(text)
             action=command.action_type
-            if action!="":
-                text=""
-                self.mute=False
-            else:
-                self.mute=True
-            requests.post(self.url,json={"message":text,self.config["server"]["action"]:action})
+            self.mute=True
+            try:
+                response=requests.post(self.url,json={self.config["server"]["reply_text"]:text,self.config["server"]["action"]:action})
+                if response.status_code!=200:
+                    print("読み上げサーバーへの接続に失敗しました")
+            except:
+                print("読み上げサーバーへの接続に失敗しました")
             self.mute=False
 class Control:
     def __init__(self,customdevices,customscenes):
