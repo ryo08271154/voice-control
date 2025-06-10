@@ -5,6 +5,7 @@ dir_name=os.path.dirname(__file__)
 def setup():
     custom_devices={"deviceList": []}
     custom_scenes={"sceneList": []}
+    os.makedirs(f"{dir_name}/config",exist_ok=True)
     with open(f"{dir_name}/config/custom_devices.json","w") as f:
         json.dump(custom_devices,f,indent=2)
     with open(f"{dir_name}/config/custom_scenes.json","w") as f:
