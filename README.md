@@ -1,20 +1,12 @@
-# 音声制御アプリケーション
+# 音声操作アプリケーション
 
 ## 概要
-このプロジェクトは、音声認識を利用してデバイスを制御するアプリケーションです。ユーザーは音声コマンドを使用して、SwitchBotデバイスやカスタムデバイスを操作したり、AIからの応答を受け取ったりすることができます。主な機能には、音声認識、デバイス制御、天気情報の取得、Chromecastメディア制御が含まれています。
-
-## ファイル構成
-- `voice_control.py`: 音声制御アプリケーションのメインロジックを含むファイル。
-- `control.py`: Fletを使用したGUIアプリケーションのメインファイル。音声認識と連携した視覚的なインターフェースを提供します。
-- `switchbot.py`: SwitchBot APIとの通信を行うモジュール。デバイスリストの取得、シーンの実行、デバイスの制御を行います。
-- `custom_scenes.json`: カスタムシーンの設定を含むJSONファイル。シーン名や実行するコマンドが定義されています。
-- `custom_devices.json`: カスタムデバイスの設定を含むJSONファイル。デバイス名や制御コマンドが定義されています。
-- `config.json`: アプリケーションの設定を含むJSONファイル。各種APIキーや位置情報などの設定が含まれています。
+このプロジェクトは、音声認識を利用してデバイスを制御するアプリケーションです。ユーザーは音声コマンドを使用して、SwitchBotデバイスやカスタムデバイスを操作したり、AIからの応答を受け取ったりすることができます。主な機能には、音声認識でデバイス制御、天気情報の取得、Chromecastメディア制御が含まれています。
 
 ## 前提条件
 - Python 3.7以上
 - マイクロフォンが接続されたデバイス
-- Voskの日本語音声認識モデル（`vosk-model-ja`）をプロジェクトディレクトリに配置
+- VOSKの日本語音声認識モデルをダウンロードされている必要があります。
 
 ## インストール手順
 1. リポジトリをクローンします。
@@ -25,27 +17,33 @@
 
 2. 必要なライブラリをインストールします。
    ```bash
-   pip install pyaudio
-   pip install numpy
-   pip install vosk
-   pip install requests
-   pip install wit
-   pip install google-generativeai
-   pip install pychromecast
-   pip install flet
+   pip install -r requirements.txt
    ```
 
-3. Voskの日本語音声認識モデルをダウンロードし、プロジェクトディレクトリに配置します。
+3. VOSKの日本語音声認識モデルをダウンロードし、任意の場所に配置します。
+   1. [VOSKモデルページ](https://alphacephei.com/vosk/models)から日本語音声認識モデルをダウンロード
+   2. ダウンロードしたファイルを解凍
+   3. 解凍したフォルダを任意の場所に配置
+   モデルのパスは後でedit_config.pyの設定時に指定します。
+
+4. アプリケーションの設定を行います。
    ```bash
-   # モデルをダウンロード（例）
-   wget https://alphacephei.com/vosk/models/vosk-model-ja-0.22.zip
-   unzip vosk-model-ja-0.22.zip
-   mv vosk-model-ja-0.22 vosk-model-ja
+   python edit_config.py
    ```
+   以下の情報の入力を求められます：
+   - VOSKモデルのパス
+   - Gemini APIキー
+   - Geminiモデル名
+   - Geminiシステム指示
+   - 音声読み上げサーバーURL
+   - 使用するプラグインの選択と設定
 
-4. 以下のJSONファイルを作成し、必要な設定を記述します。
+   設定が完了すると、`config/config.json`が自動的に作成されます。
 
-   - **`custom_scenes.json`**: カスタムシーンの設定を記述します。
+5. 必要に応じて、カスタムデバイスやシーンを設定できます。
+   `config`ディレクトリ内の以下のJSONファイルを編集してください：
+
+   - **`custom_scenes.json`**: カスタムシーンの設定
      ```json
      {
        "sceneList": [
@@ -57,7 +55,7 @@
      }
      ```
 
-   - **`custom_devices.json`**: カスタムデバイスの設定を記述します。
+   - **`custom_devices.json`**: カスタムデバイスの設定
      ```json
      {
        "deviceList": [
@@ -67,33 +65,6 @@
            "turnOff": "オフにするコマンド"
          }
        ]
-     }
-     ```
-
-   - **`config.json`**: アプリケーションの設定を記述します。
-     ```json
-     {
-       "apikeys": {
-         "weather_api_key": "OpenWeatherMap APIキー",
-         "wit_token": "Wit.aiトークン",
-         "genai": "Google Generative AI APIキー",
-         "switchbot_token": "SwitchBot APIトークン",
-         "switchbot_secret": "SwitchBot APIシークレット"
-       },
-       "location": {
-         "latitude": "緯度（例: 35.6762）",
-         "longitude": "経度（例: 139.6503）"
-       },
-       "url": {
-         "server_url": "音声合成サーバーのURL（オプション）"
-       },
-       "chromecasts": {
-         "friendly_names": ["リビングのChromecast", "寝室のChromecast"]
-       },
-       "genai": {
-         "model_name":"gemini-1.5-flash-8b",
-         "system_instruction":"あなたは簡潔に3文以下で回答する音声アシスタントです"
-       },
      }
      ```
 
@@ -116,7 +87,7 @@ python control.py
   - 「テレビを消して」：テレビの電源をオフにします
   - 「エアコンをつけて」：エアコンをオンにします
 
-- **メディア操作（Chromecast対応）**
+- **メディア操作（Chromecast）**
   - 「再生して」：メディアの再生を開始します
   - 「一時停止して」：メディアを一時停止します
   - 「停止して」：メディアを停止します
@@ -137,17 +108,18 @@ python control.py
   - 「○○とは何ですか？」：様々な質問にAIが回答します
 
 ## 必要なAPIキー
-- **OpenWeatherMap API**: 天気情報の取得に使用
-- **Wit.ai**: 自然言語処理による音声コマンドの解析に使用
+必須:
 - **Google Generative AI (Gemini)**: AI対話機能に使用
-- **SwitchBot API**: SwitchBotデバイスの制御に使用
 
-## 対応デバイス
+任意:
+- **OpenWeatherMap API**: 天気情報の取得機能を使用する場合に必要
+- **SwitchBot API**: SwitchBotデバイスを制御する場合に必要
+
+## 操作対応デバイス
 - SwitchBot対応デバイス（ライト、テレビ、エアコンなど）
 - Chromecast（メディア再生、音量制御）
 - カスタムデバイス（コマンドライン経由で制御可能なデバイス）
 
 ## 注意事項
-- 音声認識にはVoskライブラリを使用しているため、インターネット接続は必須ではありませんが、各種API機能を使用する場合は接続が必要です
+- 音声認識にはVOSKライブラリを使用しているため、インターネット接続は必須ではありませんが、各種API機能を使用する場合は接続が必要です
 - マイクロフォンへのアクセス許可が必要です
-- SwitchBotデバイスを使用する場合は、事前にSwitchBotアプリでデバイス設定を完了してください
