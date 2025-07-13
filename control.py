@@ -44,15 +44,16 @@ def main(page:flet.Page):
             pass
     class VoiceControl(voice_control.VoiceControl):
         def yomiage(self, commands):
-            super().yomiage(commands)
             result(commands[0])
+            super().yomiage(commands)
             page.run_task(back)
     def result(v):
         global voice
         talk_text.value=v.user_input_text
         reply.value=v.reply_text
+        voice.reply=v.reply_text
         for name in ["をオン","をオフ"]:
-            if name in voice.reply:
+            if name in v.reply_text:
                 page.go("/device_control")
                 break
         else:
@@ -65,9 +66,9 @@ def main(page:flet.Page):
             page.window.full_screen=False
             page.window.skip_task_bar=True
     def control():
-        icon=""
+        icon=flet.Icons.DEVICE_UNKNOWN
         color=""
-        device_name=""
+        device_name=["不明なデバイス"]
         action=""
         if "ライト" in voice.reply:
             icon=flet.Icons.LIGHTBULB
@@ -78,8 +79,6 @@ def main(page:flet.Page):
         elif "エアコン" in voice.reply:
             icon=flet.Icons.THERMOSTAT
             device_name=["エアコン"]
-        else:
-            icon=flet.Icons.DEVICE_UNKNOWN
         if "オン" in voice.reply:
             color=flet.Colors.BLUE
             action="turnOff"
@@ -100,13 +99,85 @@ def main(page:flet.Page):
         voice.text=text
         voice.command(text)
     def menu_list():
-        data=None
-        commands=["ライトをオン","ライトをオフ","テレビをオン","テレビをオフ","エアコンをオン","エアコンをオフ","今日の天気は","明日の天気は","再生","停止","早送り","早戻し","プログラミングについて教えて","今日のニュースは","最新のニュースを教えて","現在の時刻は","今日の日付は","今の気温は","湿度はどれくらい？","カレンダーの予定を教えて","為替レートを教えて","今日の運勢は？","今の風速は？","今日の日の出時間は？","今日の日の入り時間は？","今の気圧は？","明日の気温は？","今週の天気予報は？","今の月の満ち欠けは？","最新のスポーツニュースを教えて","今日の株価は？","ビットコインの価格は？","今日のおすすめの映画は？","今の交通情報を教えて","近くのレストランを教えて","現在の電車の遅延情報は？","今日の祝日は？","次の祝日は？","今日の記念日は？","今日の歴史的な出来事を教えて","有名人の誕生日は？","今日の名言を教えて","最新の技術ニュースは？","今日の為替変動は？","人気の音楽ランキングは？","最新のゲーム情報は？","近くのイベントを教えて","今の海水温は？","おすすめの観光地を教えて","今の紫外線指数は？","最新のファッションニュースは？","今日のおすすめの本は？","最近の宇宙ニュースは？","今日の星座占いは？","今日のラッキーカラーは？","最新の医療ニュースは？","今日の献立のおすすめは？","近くの病院を教えて","現在の飛行機の運航状況は？","今日の月齢は？","話題のアニメを教えて","今の地震情報は？"] # 例示コマンドリスト
-        data=flet.GridView(runs_count=1,max_extent=150,child_aspect_ratio=1.0,spacing=1,run_spacing=1)
-        random_list=random.sample(commands,51)
+        data = None
+        commands = ["ライトをオン", "ライトをオフ","テレビをオン","テレビをオフ","エアコンをオン","エアコンをオフ","今日の天気は","明日の天気は","再生","停止","早送り","早戻し","プログラミングについて教えて","今日のニュースは","最新のニュースを教えて","現在の時刻は","今日の日付は","今の気温は","湿度はどれくらい？","カレンダーの予定を教えて","為替レートを教えて","今日の運勢は？","今の風速は？","今日の日の出時間は？","今日の日の入り時間は？","今の気圧は？","明日の気温は？","今週の天気予報は？","今の月の満ち欠けは？","最新のスポーツニュースを教えて","今日の株価は？","ビットコインの価格は？","今日のおすすめの映画は？","今の交通情報を教えて","近くのレストランを教えて","現在の電車の遅延情報は？","今日の祝日は？","次の祝日は？","今日の記念日は？","今日の歴史的な出来事を教えて","有名人の誕生日は？","今日の名言を教えて","最新の技術ニュースは？","今日の為替変動は？","人気の音楽ランキングは？","最新のゲーム情報は？","近くのイベントを教えて","今の海水温は？","おすすめの観光地を教えて","今の紫外線指数は？","最新のファッションニュースは？","今日のおすすめの本は？","最近の宇宙ニュースは？","今日の星座占いは？","今日のラッキーカラーは？","最新の医療ニュースは？","今日の献立のおすすめは？","近くの病院を教えて","現在の飛行機の運航状況は？","今日の月齢は？","話題のアニメを教えて","今の地震情報は？"] # 例示コマンドリスト
+        data = flet.GridView(
+            runs_count=1,
+            max_extent=150,
+            child_aspect_ratio=1.0,
+            spacing=1,
+            run_spacing=1,
+            controls=[]
+        )
+        random_list = random.sample(commands, 51)
         for i in random_list:
-            data.controls.append(flet.ElevatedButton(i,on_click=lambda e, cmd=i: command(cmd)))
+            data.controls.append(flet.ElevatedButton(i, on_click=lambda e, cmd=i: command(cmd)))
         return data
+    def device_control_panel():
+            devices = []
+            for device in voice.custom_devices_name:
+                devices.append({"name": device, "icon": flet.Icons.DEVICES})
+            from plugins.switchbot import switchbot
+            for i in switchbot.devices["body"]["infraredRemoteList"]:
+                device_name=i["deviceName"]
+                icon=flet.Icons.DEVICE_UNKNOWN
+                if "ライト" in device_name or "電気" in device_name:
+                    icon=flet.Icons.LIGHTBULB
+                elif "テレビ" in device_name:
+                    icon=flet.Icons.TV
+                elif "エアコン" in device_name:
+                    icon=flet.Icons.THERMOSTAT
+                devices.append({"name": device_name, "icon": icon})
+            for i in switchbot.scenes["body"]:
+                devices.append({"name": i["sceneName"], "icon": flet.Icons.DEVICES_OTHER})
+            grid = flet.GridView(
+                expand=True,
+                runs_count=2,
+                max_extent=200,  # カードの最大幅を増やす
+                child_aspect_ratio=1.2,  # アスペクト比を調整
+                spacing=10,
+                run_spacing=10
+            )
+            for device in devices:
+                grid.controls.append(
+                    flet.Card(
+                        content=flet.Container(
+                            content=flet.Column(
+                                [
+                                    flet.Icon(device["icon"], size=40),
+                                    flet.Text(
+                                        device["name"],
+                                        size=16,
+                                        text_align=flet.TextAlign.CENTER,
+                                        width=180,  # テキストの最大幅を設定
+                                        max_lines=2,  # 最大2行まで表示
+                                        overflow=flet.TextOverflow.ELLIPSIS  # 長すぎる場合は省略
+                                    ),
+                                    flet.Row(
+                                        [
+                                            flet.ElevatedButton(
+                                                "ON",
+                                                width=70,  # ボタンの幅を固定
+                                                on_click=lambda e, d=device: command(f"{d['name']}をオン")
+                                            ),
+                                            flet.ElevatedButton(
+                                                "OFF",
+                                                width=70,  # ボタンの幅を固定
+                                                on_click=lambda e, d=device: command(f"{d['name']}をオフ")
+                                            )
+                                        ],
+                                        alignment=flet.MainAxisAlignment.CENTER,
+                                        spacing=10
+                                    )
+                                ],
+                                horizontal_alignment=flet.CrossAxisAlignment.CENTER,
+                                spacing=10
+                            ),
+                            padding=15
+                        )
+                    )
+                )
+            return grid
     def route(e):
         page.views.clear()
 
@@ -122,15 +193,53 @@ def main(page:flet.Page):
 
                                 ],scroll=flet.ScrollMode.HIDDEN))
         if page.route=="/menu":
-            page.views.append(flet.View("/menu",[flet.ElevatedButton("ホーム",on_click=lambda e:page.go("/")),
-                                            flet.ElevatedButton("フルスクリーン切り替え", on_click=voice_screen),
-                                            menu_list(),
-                                        ],scroll=flet.ScrollMode.HIDDEN))
+            page.views.append(flet.View("/menu",[
+                flet.ElevatedButton("ホーム",on_click=lambda e:page.go("/")),
+                flet.ElevatedButton("デバイス一覧", on_click=lambda e: page.go("/devices")),
+                flet.ElevatedButton("ヘルプ", on_click=lambda e: page.go("/help")),
+                flet.ElevatedButton("設定", on_click=lambda e: page.go("/settings")),
+                menu_list(),
+            ],scroll=flet.ScrollMode.HIDDEN))
         if page.route=="/device_control":
             icon,color,device_name,action=control()
             page.views.append(flet.View("/device_control",[flet.ElevatedButton("ホーム",on_click=lambda e:page.go("/")),
-                                                           flet.Container(content=flet.IconButton(icon,icon_size=100,on_click=lambda e:device_control(device_name,action),icon_color=color,expand=True,alignment=flet.alignment.center),alignment=flet.alignment.center),
-                                        ]))
+                flet.Container(content=flet.IconButton(icon,icon_size=100,on_click=lambda e:device_control(device_name,action),icon_color=color,expand=True,alignment=flet.alignment.center),alignment=flet.alignment.center),
+            ]))
+        if page.route == "/devices":
+            page.views.append(
+                flet.View("/devices",
+                    [
+                        flet.ElevatedButton("ホーム", on_click=lambda e: page.go("/")),
+                        flet.Text("デバイス一覧", size=30, weight=flet.FontWeight.BOLD),
+                        device_control_panel()
+                    ]
+                )
+            )
+        if page.route == "/help":
+            page.views.append(
+                flet.View(
+                    "/help",
+                    [
+                        flet.ElevatedButton("ホーム", on_click=lambda e: page.go("/")),
+                        flet.Text("使い方", size=30, weight=flet.FontWeight.BOLD),
+                        flet.Text("1. 画面をタップしてメニューを開く\n2. 音声コマンドを話すか、メニューから選択\n3. 「ライトをオン」などの機器操作\n4. 「今日の天気は」などの質問\n5. 「〇〇について教えて」などの会話", size=20),
+                        flet.Text("コマンド例", size=30, weight=flet.FontWeight.BOLD),
+                        flet.Text("・機器操作: ライト/テレビ/エアコン + オン/オフ\n・情報取得: 天気、時刻、ニュース\n・会話: プログラミング、技術、スポーツなど", size=20),
+                    ],
+                )
+            )
+
+        if page.route == "/settings":
+            page.views.append(
+                flet.View(
+                    "/settings",
+                    [
+                        flet.ElevatedButton("ホーム", on_click=lambda e: page.go("/")),
+                        flet.Text("設定", size=30, weight=flet.FontWeight.BOLD),
+                        flet.Switch(label="フルスクリーンモード", value=page.window.full_screen, on_change=voice_screen),
+                    ],
+                )
+            )
         page.scroll=flet.ScrollMode.ALWAYS
         page.update()
 
