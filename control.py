@@ -8,20 +8,21 @@ import random
 voice=None
 def main(page:flet.Page):
     def listen():
-        import json
-        dir_name=os.path.dirname(__file__)
-        global voice,c
-        custom_scenes=json.load(open(os.path.join(dir_name,"config","custom_scenes.json")))
-        custom_devices=json.load(open(os.path.join(dir_name,"config","custom_devices.json")))
-        config=json.load(open(os.path.join(dir_name,"config","config.json")))
-        c=voice_control.Control(custom_devices,custom_scenes)
-        voice=VoiceControl(c.custom_devices,c,config)
-        voice.words.extend(["教","何","ですか","なに","とは","について","ますか"])
-        def run(config):
-            voice.always_on_voice(config["vosk"]["model_path"])
         try:
+            import json
+            dir_name=os.path.dirname(__file__)
+            global voice,c
+            custom_scenes=json.load(open(os.path.join(dir_name,"config","custom_scenes.json")))
+            custom_devices=json.load(open(os.path.join(dir_name,"config","custom_devices.json")))
+            config=json.load(open(os.path.join(dir_name,"config","config.json")))
+            c=voice_control.Control(custom_devices,custom_scenes)
+            voice=VoiceControl(c.custom_devices,c,config)
+            voice.words.extend(["教","何","ですか","なに","とは","について","ますか"])
+            def run(config):
+                voice.always_on_voice(config["vosk"]["model_path"])
             run(config)
-        except:pass
+        except Exception as e:
+            print(f"音声認識の初期化中にエラーが発生しました: {e}")
     def menu(e):
         page.go("/menu")
     page.theme_mode=flet.ThemeMode.DARK
@@ -29,7 +30,7 @@ def main(page:flet.Page):
     nowtime = flet.Text(datetime.datetime.now().strftime("%Y/%m/%d\n%H:%M:%S"), size=100, text_align=flet.TextAlign.CENTER)
     talk_text=flet.Text("",size=50)
     reply=flet.Text("", size=100,text_align=flet.TextAlign.CENTER,expand=True)
-    async def time_update():
+    async def update_time():
         while True:
             nowtime.value =datetime.datetime.now().strftime("%Y/%m/%d\n%H:%M:%S")
             page.update()
@@ -42,14 +43,14 @@ def main(page:flet.Page):
         except asyncio.CancelledError:
             pass
     class VoiceControl(voice_control.VoiceControl):
-        def yomiage(self, text=""):
-            super().yomiage(text)
-            result()
+        def yomiage(self, commands):
+            super().yomiage(commands)
+            result(commands[0])
             page.run_task(back)
-    def result():
+    def result(v):
         global voice
-        talk_text.value=voice.text
-        reply.value=voice.reply
+        talk_text.value=v.user_input_text
+        reply.value=v.reply_text
         for name in ["をオン","をオフ"]:
             if name in voice.reply:
                 page.go("/device_control")
@@ -60,7 +61,7 @@ def main(page:flet.Page):
         if page.window.full_screen==False:
             page.window.full_screen=True
             page.window.skip_task_bar=True
-        else:
+        else: # フルスクリーンを解除する場合
             page.window.full_screen=False
             page.window.skip_task_bar=True
     def control():
@@ -88,7 +89,7 @@ def main(page:flet.Page):
         return icon,color,device_name,action
     def device_control(device_name,action):
         global voice
-        page.go("/")
+        page.go("/") # デバイス操作後、ホーム画面に戻る
         if action=="turnOn":
             set_action=device_name[0]+"オン"
         else:
@@ -100,7 +101,7 @@ def main(page:flet.Page):
         voice.command(text)
     def menu_list():
         data=None
-        commands=["ライトをオン","ライトをオフ","テレビをオン","テレビをオフ","エアコンをオン","エアコンをオフ","今日の天気は","明日の天気は","再生","停止","早送り","早戻し","プログラミングについて教えて","今日のニュースは","最新のニュースを教えて","現在の時刻は","今日の日付は","今の気温は","湿度はどれくらい？","カレンダーの予定を教えて","為替レートを教えて","今日の運勢は？","今の風速は？","今日の日の出時間は？","今日の日の入り時間は？","今の気圧は？","明日の気温は？","今週の天気予報は？","今の月の満ち欠けは？","最新のスポーツニュースを教えて","今日の株価は？","ビットコインの価格は？","今日のおすすめの映画は？","今の交通情報を教えて","近くのレストランを教えて","現在の電車の遅延情報は？","今日の祝日は？","次の祝日は？","今日の記念日は？","今日の歴史的な出来事を教えて","有名人の誕生日は？","今日の名言を教えて","最新の技術ニュースは？","今日の為替変動は？","人気の音楽ランキングは？","最新のゲーム情報は？","近くのイベントを教えて","今の海水温は？","おすすめの観光地を教えて","今の紫外線指数は？","最新のファッションニュースは？","今日のおすすめの本は？","最近の宇宙ニュースは？","今日の星座占いは？","今日のラッキーカラーは？","最新の医療ニュースは？","今日の献立のおすすめは？","近くの病院を教えて","現在の飛行機の運航状況は？","今日の月齢は？","話題のアニメを教えて","今の地震情報は？"]
+        commands=["ライトをオン","ライトをオフ","テレビをオン","テレビをオフ","エアコンをオン","エアコンをオフ","今日の天気は","明日の天気は","再生","停止","早送り","早戻し","プログラミングについて教えて","今日のニュースは","最新のニュースを教えて","現在の時刻は","今日の日付は","今の気温は","湿度はどれくらい？","カレンダーの予定を教えて","為替レートを教えて","今日の運勢は？","今の風速は？","今日の日の出時間は？","今日の日の入り時間は？","今の気圧は？","明日の気温は？","今週の天気予報は？","今の月の満ち欠けは？","最新のスポーツニュースを教えて","今日の株価は？","ビットコインの価格は？","今日のおすすめの映画は？","今の交通情報を教えて","近くのレストランを教えて","現在の電車の遅延情報は？","今日の祝日は？","次の祝日は？","今日の記念日は？","今日の歴史的な出来事を教えて","有名人の誕生日は？","今日の名言を教えて","最新の技術ニュースは？","今日の為替変動は？","人気の音楽ランキングは？","最新のゲーム情報は？","近くのイベントを教えて","今の海水温は？","おすすめの観光地を教えて","今の紫外線指数は？","最新のファッションニュースは？","今日のおすすめの本は？","最近の宇宙ニュースは？","今日の星座占いは？","今日のラッキーカラーは？","最新の医療ニュースは？","今日の献立のおすすめは？","近くの病院を教えて","現在の飛行機の運航状況は？","今日の月齢は？","話題のアニメを教えて","今の地震情報は？"] # 例示コマンドリスト
         data=flet.GridView(runs_count=1,max_extent=150,child_aspect_ratio=1.0,spacing=1,run_spacing=1)
         random_list=random.sample(commands,51)
         for i in random_list:
@@ -132,15 +133,13 @@ def main(page:flet.Page):
                                         ]))
         page.scroll=flet.ScrollMode.ALWAYS
         page.update()
-    def test(e):
-        page.go("/test")
 
+    # イベントハンドラの登録
     page.on_route_change=route
-    page.on=menu
-    page.run_task(time_update)
-    # page.run_task(listen)
+    page.on_click=menu # 画面クリックでメニューに遷移
+    page.run_task(update_time) # 時刻更新タスクを開始
     l=threading.Thread(target=listen,daemon=True)
     l.start()
     page.window.skip_task_bar=True
     page.go(page.route)
-flet.app(target=main,port=8000,view=flet.FLET_APP_WEB)
+flet.app(target=main)
