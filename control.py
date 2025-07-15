@@ -5,7 +5,9 @@ import voice_control
 import os
 import threading
 import random
+import pychromecast
 voice=None
+chromecasts, browser = pychromecast.get_chromecasts()
 def main(page:flet.Page):
     def listen():
         try:
@@ -33,7 +35,8 @@ def main(page:flet.Page):
     async def update_time():
         while True:
             nowtime.value =datetime.datetime.now().strftime("%Y/%m/%d\n%H:%M:%S")
-            page.update()
+            if page.route=="/":
+                page.update()
             await asyncio.sleep(1)
 
     async def back(seconds=30):
@@ -42,6 +45,44 @@ def main(page:flet.Page):
             page.go("/")
         except asyncio.CancelledError:
             pass
+    async def get_chromecast_status():
+        global media_icon,media_info_text,current_time,max_time,is_playing
+        media_icon=flet.Image(width=150, height=150)
+        media_info_text=flet.Text(size=30, text_align=flet.TextAlign.CENTER)
+        while True:
+            for cast in chromecasts:
+                cast.wait()
+                if cast.status.app_id != None:
+                    mc=cast.media_controller
+                    mc.block_until_active()
+                    is_playing=mc.status.player_is_playing
+                    current_time=mc.status.adjusted_current_time
+                    max_time=mc.status.duration
+                    media_icon.src=mc.status.images[0].url
+                    media_info_text.value= f"{mc.status.title} - {mc.status.artist}"
+                    if page.route=="/media":
+                        page.update()
+                    break
+            await asyncio.sleep(30)
+    async def playback_progress_update():
+        global current_time, playback_progress,playback_progress_time,is_playing
+        playback_progress = flet.ProgressBar(width=600, value=0)
+        while True:
+            if is_playing==True:
+                current_time+=1
+            else:
+                await asyncio.sleep(1)
+                continue
+            if current_time is None or max_time is None:
+                await asyncio.sleep(1)
+                continue
+            if current_time > max_time:
+                current_time = 0
+            playback_progress_time= current_time / max_time if current_time > 0  and max_time > 0 else 0
+            playback_progress.value=playback_progress_time
+            if page.route=="/media":
+                page.update()
+            await asyncio.sleep(1)
     class VoiceControl(voice_control.VoiceControl):
         def yomiage(self, commands):
             result(commands[0])
@@ -178,6 +219,30 @@ def main(page:flet.Page):
                     )
                 )
             return grid
+    def media_control_action(action):
+        global current_time
+        for cast in chromecasts:
+            cast.wait()
+            if cast.status.app_id != None:
+                mc=cast.media_controller
+                mc.block_until_active()
+                if action=="play":
+                    mc.play()
+                elif action=="pause":
+                    mc.pause()
+                elif action=="stop":
+                    mc.stop()
+                elif action=="rewind":
+                    current_time-=10
+                    mc.seek(current_time)
+                elif action=="forward":
+                    current_time+=10
+                    mc.seek(current_time)
+                elif action=="previous":
+                    mc.queue_prev()
+                elif action=="next":
+                    mc.queue_next()
+                break
     def route(e):
         page.views.clear()
 
@@ -196,6 +261,7 @@ def main(page:flet.Page):
             page.views.append(flet.View("/menu",[
                 flet.ElevatedButton("ホーム",on_click=lambda e:page.go("/")),
                 flet.ElevatedButton("デバイス一覧", on_click=lambda e: page.go("/devices")),
+                flet.ElevatedButton("メディア操作", on_click=lambda e: page.go("/media")), # メディア操作ボタンを追加
                 flet.ElevatedButton("ヘルプ", on_click=lambda e: page.go("/help")),
                 flet.ElevatedButton("設定", on_click=lambda e: page.go("/settings")),
                 menu_list(),
@@ -240,6 +306,36 @@ def main(page:flet.Page):
                     ],
                 )
             )
+        # メディア操作画面を追加
+        if page.route == "/media":
+            page.views.append(
+                flet.View(
+                    "/media",
+                    [
+                        flet.ElevatedButton("ホーム", on_click=lambda e: page.go("/")),
+                        flet.Text("メディア操作", size=40, weight=flet.FontWeight.BOLD),
+                        media_icon,
+                        media_info_text,
+                        playback_progress,
+                        flet.Row(
+                            [
+                                flet.IconButton(icon=flet.Icons.PLAY_ARROW, icon_size=60, on_click=lambda e: media_control_action("play")),
+                                flet.IconButton(icon=flet.Icons.PAUSE, icon_size=60, on_click=lambda e: media_control_action("pause")),
+                                flet.IconButton(icon=flet.Icons.STOP, icon_size=60, on_click=lambda e: media_control_action("stop")),
+                                flet.IconButton(icon=flet.Icons.FAST_REWIND, icon_size=60, on_click=lambda e: media_control_action("rewind")),
+                                flet.IconButton(icon=flet.Icons.FAST_FORWARD, icon_size=60, on_click=lambda e: media_control_action("forward")),
+                                flet.IconButton(icon=flet.Icons.SKIP_PREVIOUS, icon_size=60, on_click=lambda e: media_control_action("previous")),
+                                flet.IconButton(icon=flet.Icons.SKIP_NEXT, icon_size=60, on_click=lambda e: media_control_action("next")),
+                            ],
+                            alignment=flet.MainAxisAlignment.CENTER,
+                            spacing=30 #
+                        )
+                    ],
+                    scroll=flet.ScrollMode.HIDDEN,
+                    vertical_alignment=flet.MainAxisAlignment.CENTER,
+                    horizontal_alignment=flet.CrossAxisAlignment.CENTER
+                )
+            )
         page.scroll=flet.ScrollMode.ALWAYS
         page.update()
 
@@ -247,6 +343,12 @@ def main(page:flet.Page):
     page.on_route_change=route
     page.on_click=menu # 画面クリックでメニューに遷移
     page.run_task(update_time) # 時刻更新タスクを開始
+    page.run_task(get_chromecast_status)
+    global current_time,max_time,is_playing
+    current_time=0
+    max_time=0
+    is_playing=False
+    page.run_task(playback_progress_update)
     l=threading.Thread(target=listen,daemon=True)
     l.start()
     page.window.skip_task_bar=True
