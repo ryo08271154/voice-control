@@ -46,9 +46,11 @@ def main(page:flet.Page):
         except asyncio.CancelledError:
             pass
     async def get_chromecast_status():
-        global media_icon,media_info_text,current_time,max_time,is_playing
-        media_icon=flet.Image(width=150, height=150)
-        media_info_text=flet.Text(size=30, text_align=flet.TextAlign.CENTER)
+        global media_icon,media_info_text,current_time,max_time,is_playing,lyrics_text,lyrics_text_list
+        media_icon=flet.Image(width=150, height=150, fit=flet.ImageFit.CONTAIN)
+        media_info_text=flet.Text(size=30, text_align=flet.TextAlign.CENTER,bgcolor=flet.colors.BLACK)
+        lyrics_text_list=flet.ListView()
+        lyrics_text=flet.Text(size=40, text_align=flet.TextAlign.CENTER, color=flet.colors.WHITE54)
         while True:
             for cast in chromecasts:
                 cast.wait()
@@ -83,6 +85,17 @@ def main(page:flet.Page):
             if page.route=="/media":
                 page.update()
             await asyncio.sleep(1)
+    async def update_lyrics():
+        global lyrics_text,lyrics_text_list
+        lyrics = ["サンプル歌詞1", "サンプル歌詞2", "サンプル歌詞3","サンプル歌詞4","サンプル歌詞5","サンプル歌詞6","サンプル歌詞7","サンプル歌詞8","サンプル歌詞9","サンプル歌詞10"]  # 実際の歌詞データに置き換える
+        if is_playing:
+            for line in lyrics:
+                lyrics_text.value = line
+                lyrics_text_list.controls.append(flet.Text(size=40, text_align=flet.TextAlign.CENTER, color=flet.colors.WHITE54,value=line))
+                if page.route=="/media":
+                    page.update()
+                # await asyncio.sleep(3)  # 歌詞の更新間隔
+        await asyncio.sleep(1)
     class VoiceControl(voice_control.VoiceControl):
         def yomiage(self, commands):
             result(commands[0])
@@ -309,34 +322,83 @@ def main(page:flet.Page):
         # メディア操作画面を追加
         if page.route == "/media":
             page.views.append(
-                flet.View(
-                    "/media",
-                    [
-                        flet.ElevatedButton("ホーム", on_click=lambda e: page.go("/")),
-                        flet.Text("メディア操作", size=40, weight=flet.FontWeight.BOLD),
-                        media_icon,
-                        media_info_text,
-                        playback_progress,
-                        flet.Row(
-                            [
-                                flet.IconButton(icon=flet.Icons.PLAY_ARROW, icon_size=60, on_click=lambda e: media_control_action("play")),
-                                flet.IconButton(icon=flet.Icons.PAUSE, icon_size=60, on_click=lambda e: media_control_action("pause")),
-                                flet.IconButton(icon=flet.Icons.STOP, icon_size=60, on_click=lambda e: media_control_action("stop")),
-                                flet.IconButton(icon=flet.Icons.FAST_REWIND, icon_size=60, on_click=lambda e: media_control_action("rewind")),
-                                flet.IconButton(icon=flet.Icons.FAST_FORWARD, icon_size=60, on_click=lambda e: media_control_action("forward")),
-                                flet.IconButton(icon=flet.Icons.SKIP_PREVIOUS, icon_size=60, on_click=lambda e: media_control_action("previous")),
-                                flet.IconButton(icon=flet.Icons.SKIP_NEXT, icon_size=60, on_click=lambda e: media_control_action("next")),
-                            ],
-                            alignment=flet.MainAxisAlignment.CENTER,
-                            spacing=30 #
-                        )
-                    ],
-                    scroll=flet.ScrollMode.HIDDEN,
-                    vertical_alignment=flet.MainAxisAlignment.CENTER,
-                    horizontal_alignment=flet.CrossAxisAlignment.CENTER
-                )
+            flet.View(
+                "/media",
+                [
+                    flet.ElevatedButton("ホーム", on_click=lambda e: page.go("/")),
+                    flet.Text(
+                        "メディア操作",
+                        size=40,
+                        weight=flet.FontWeight.BOLD,
+                        text_align=flet.TextAlign.CENTER,
+                    ),
+                    flet.Stack(
+                        controls=[
+                            # 上中央に固定する部分
+                            flet.Container(
+                                content=flet.Column(
+                                    [
+                                        media_icon,
+                                        media_info_text,
+                                        flet.Container(height=120),
+                                    ],
+                                    horizontal_alignment=flet.CrossAxisAlignment.CENTER,
+                                    spacing=5,
+                                ),
+                                alignment=flet.alignment.top_center,
+                                padding=flet.padding.only(top=20),
+                            ),
+
+                            # 残りのスクロール可能なメインコンテンツ
+                            flet.Container(
+                                content=flet.Column(
+                                    [
+                                        flet.Container(height=200),  # 上のアイコン表示分のスペースを空ける
+                                        flet.Container(
+                                            content=lyrics_text_list,
+                                            expand=True,
+                                            alignment=flet.alignment.center,
+                                        ),
+                                        flet.Container(
+                                            content=playback_progress,
+                                            padding=flet.padding.symmetric(vertical=10)
+                                        ),
+                                        flet.Container(
+                                            content=flet.Row(
+                                                [
+                                                    flet.IconButton(icon=flet.Icons.PLAY_ARROW, icon_size=60, on_click=lambda e: media_control_action("play")),
+                                                    flet.IconButton(icon=flet.Icons.PAUSE, icon_size=60, on_click=lambda e: media_control_action("pause")),
+                                                    flet.IconButton(icon=flet.Icons.STOP, icon_size=60, on_click=lambda e: media_control_action("stop")),
+                                                    flet.IconButton(icon=flet.Icons.FAST_REWIND, icon_size=60, on_click=lambda e: media_control_action("rewind")),
+                                                    flet.IconButton(icon=flet.Icons.FAST_FORWARD, icon_size=60, on_click=lambda e: media_control_action("forward")),
+                                                    flet.IconButton(icon=flet.Icons.SKIP_PREVIOUS, icon_size=60, on_click=lambda e: media_control_action("previous")),
+                                                    flet.IconButton(icon=flet.Icons.SKIP_NEXT, icon_size=60, on_click=lambda e: media_control_action("next")),
+                                                ],
+                                                alignment=flet.MainAxisAlignment.CENTER,
+                                                spacing=30
+                                            ),
+                                            alignment=flet.alignment.bottom_center,
+                                            padding=flet.padding.only(bottom=20)
+                                        )
+                                    ],
+                                    alignment=flet.MainAxisAlignment.START,
+                                    horizontal_alignment=flet.CrossAxisAlignment.CENTER,
+                                    expand=True
+                                ),
+                                expand=True,
+                                padding=flet.padding.symmetric(horizontal=20)
+                            )
+                        ],
+                        expand=True
+                    )
+                ],
+                vertical_alignment=flet.MainAxisAlignment.START,
+                horizontal_alignment=flet.CrossAxisAlignment.CENTER,
+                scroll=None
             )
-        page.scroll=flet.ScrollMode.ALWAYS
+            )
+
+        # page.scroll=flet.ScrollMode.ALWAYS
         page.update()
 
     # イベントハンドラの登録
@@ -349,6 +411,7 @@ def main(page:flet.Page):
     max_time=0
     is_playing=False
     page.run_task(playback_progress_update)
+    page.run_task(update_lyrics)  # 歌詞更新タスクを開始
     l=threading.Thread(target=listen,daemon=True)
     l.start()
     page.window.skip_task_bar=True
