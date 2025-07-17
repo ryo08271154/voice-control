@@ -5,15 +5,18 @@ import voice_control
 import os
 import threading
 import random
+import time
 import pychromecast
+import lyricsgenius
 voice=None
+l=None
 chromecasts, browser = pychromecast.get_chromecasts()
 def main(page:flet.Page):
     def listen():
         try:
             import json
             dir_name=os.path.dirname(__file__)
-            global voice,c
+            global voice,c,l
             custom_scenes=json.load(open(os.path.join(dir_name,"config","custom_scenes.json")))
             custom_devices=json.load(open(os.path.join(dir_name,"config","custom_devices.json")))
             config=json.load(open(os.path.join(dir_name,"config","config.json")))
@@ -42,16 +45,15 @@ def main(page:flet.Page):
     async def back(seconds=30):
         try:
             await asyncio.sleep(seconds)
-            page.go("/")
+            if current_time>0:
+                page.go("/media")
+            else:
+                page.go("/")
         except asyncio.CancelledError:
             pass
-    async def get_chromecast_status():
-        global media_icon,media_info_text,current_time,max_time,is_playing,lyrics_text,lyrics_text_list
-        media_icon=flet.Image(width=150, height=150, fit=flet.ImageFit.CONTAIN)
-        media_info_text=flet.Text(size=30, text_align=flet.TextAlign.CENTER,bgcolor=flet.colors.BLACK)
-        lyrics_text_list=flet.ListView()
-        lyrics_text=flet.Text(size=40, text_align=flet.TextAlign.CENTER, color=flet.colors.WHITE54)
-        while True:
+    def get_chromecast_status():
+        global is_playing,current_time,max_time,media_icon,media_info_text,playing_title,playing_artist,lyrics_text_list
+        try:
             for cast in chromecasts:
                 cast.wait()
                 if cast.status.app_id != None:
@@ -60,14 +62,27 @@ def main(page:flet.Page):
                     is_playing=mc.status.player_is_playing
                     current_time=mc.status.adjusted_current_time
                     max_time=mc.status.duration
-                    media_icon.src=mc.status.images[0].url
+                    media_icon.src=mc.status.images[0].url if mc.status.images else ""
+                    playing_title=mc.status.title
+                    playing_artist=mc.status.artist
                     media_info_text.value= f"{mc.status.title} - {mc.status.artist}"
                     if page.route=="/media":
                         page.update()
                     break
+        except:
+            pass
+    async def update_chromecast_status():
+        global media_icon,media_info_text,current_time,max_time,is_playing,lyrics_text_list,playing_title,playing_artist
+        media_icon=flet.Image(width=150, height=150, fit=flet.ImageFit.CONTAIN)
+        media_info_text=flet.Text(size=30, text_align=flet.TextAlign.CENTER,bgcolor=flet.Colors.BLACK)
+        lyrics_text_list=flet.ListView(auto_scroll=True)
+        playing_title=""
+        playing_artist=""
+        while True:
+            get_chromecast_status()
             await asyncio.sleep(30)
     async def playback_progress_update():
-        global current_time, playback_progress,playback_progress_time,is_playing
+        global current_time, playback_progress,playback_progress_time,is_playing,lyrics
         playback_progress = flet.ProgressBar(width=600, value=0)
         while True:
             if is_playing==True:
@@ -80,22 +95,52 @@ def main(page:flet.Page):
                 continue
             if current_time > max_time:
                 current_time = 0
+                get_chromecast_status()
             playback_progress_time= current_time / max_time if current_time > 0  and max_time > 0 else 0
             playback_progress.value=playback_progress_time
             if page.route=="/media":
                 page.update()
             await asyncio.sleep(1)
+    def get_lyrics():
+        global lyrics_text_list
+        if playing_artist and playing_title:
+            token=voice.config.get("genius",{}).get("token")
+            genius=lyricsgenius.Genius(token)
+            song=genius.search_song(playing_title,playing_artist)
+            if song:
+                return song.lyrics.splitlines()
+            else:
+                return ["曲が見つかりませんでした"]
+        else:
+            return ["歌詞を取得できません"]
     async def update_lyrics():
-        global lyrics_text,lyrics_text_list
-        lyrics = ["サンプル歌詞1", "サンプル歌詞2", "サンプル歌詞3","サンプル歌詞4","サンプル歌詞5","サンプル歌詞6","サンプル歌詞7","サンプル歌詞8","サンプル歌詞9","サンプル歌詞10"]  # 実際の歌詞データに置き換える
-        if is_playing:
-            for line in lyrics:
-                lyrics_text.value = line
-                lyrics_text_list.controls.append(flet.Text(size=40, text_align=flet.TextAlign.CENTER, color=flet.colors.WHITE54,value=line))
-                if page.route=="/media":
-                    page.update()
-                # await asyncio.sleep(3)  # 歌詞の更新間隔
-        await asyncio.sleep(1)
+        global lyrics_text_list,lyrics
+        def update():
+            global lyrics_text_list
+            lyrics_text_list.controls.clear()
+            lyrics=get_lyrics()
+            temp_playing_title=playing_title
+            interval = max_time / len(lyrics) -0.5
+            return lyrics,temp_playing_title,interval
+        lyrics,temp_playing_title,interval=update()
+        line=0
+        while True:
+            if temp_playing_title!=playing_title:
+                lyrics,temp_playing_title,interval=update()
+                line=0
+            if current_time // interval > len(lyrics_text_list.controls):
+                lyrics_text=flet.Text(size=40, text_align=flet.TextAlign.CENTER, color=flet.Colors.WHITE54)
+                lyrics_text.value = lyrics[line]
+                if len(lyrics)>line+1:
+                    line+=1
+                    lyrics_text_list.controls.append(lyrics_text)
+            elif current_time // interval < len(lyrics_text_list.controls):
+                line-=1
+                lyrics_text_list.controls.pop(-1)
+            if page.route=="/media":
+                page.update()
+                # await asyncio.sleep(interval)  # 歌詞の更新間隔
+            await asyncio.sleep(0.8)
     class VoiceControl(voice_control.VoiceControl):
         def yomiage(self, commands):
             result(commands[0])
@@ -233,34 +278,45 @@ def main(page:flet.Page):
                 )
             return grid
     def media_control_action(action):
-        global current_time
-        for cast in chromecasts:
-            cast.wait()
-            if cast.status.app_id != None:
-                mc=cast.media_controller
-                mc.block_until_active()
-                if action=="play":
-                    mc.play()
-                elif action=="pause":
-                    mc.pause()
-                elif action=="stop":
-                    mc.stop()
-                elif action=="rewind":
-                    current_time-=10
-                    mc.seek(current_time)
-                elif action=="forward":
-                    current_time+=10
-                    mc.seek(current_time)
-                elif action=="previous":
-                    mc.queue_prev()
-                elif action=="next":
-                    mc.queue_next()
-                break
+        global current_time,is_playing
+        try:
+            for cast in chromecasts:
+                cast.wait()
+                if cast.status.app_id != None:
+                    mc=cast.media_controller
+                    mc.block_until_active()
+                    if action=="play":
+                        mc.play()
+                        is_playing=True
+                    elif action=="pause":
+                        mc.pause()
+                        is_playing=False
+                    elif action=="stop":
+                        mc.stop()
+                        is_playing=False
+                    elif action=="rewind":
+                        current_time-=10
+                        mc.seek(current_time)
+                    elif action=="forward":
+                        current_time+=10
+                        mc.seek(current_time)
+                    elif action=="previous":
+                        mc.queue_prev()
+                        time.sleep(1)
+                        get_chromecast_status()
+                    elif action=="next":
+                        mc.queue_next()
+                        time.sleep(1)
+                        get_chromecast_status()
+                    break
+        except:
+            pass
     def route(e):
         page.views.clear()
 
         if page.route=="/":
             reply.value=""
+            nowtime.size=100
             page.views.append(flet.View("/",[
                                             flet.Container(content=nowtime,expand=True,alignment=flet.alignment.center,on_click=menu)
                                             ],))
@@ -321,17 +377,13 @@ def main(page:flet.Page):
             )
         # メディア操作画面を追加
         if page.route == "/media":
+            nowtime.size=20
             page.views.append(
             flet.View(
                 "/media",
                 [
                     flet.ElevatedButton("ホーム", on_click=lambda e: page.go("/")),
-                    flet.Text(
-                        "メディア操作",
-                        size=40,
-                        weight=flet.FontWeight.BOLD,
-                        text_align=flet.TextAlign.CENTER,
-                    ),
+                    nowtime,
                     flet.Stack(
                         controls=[
                             # 上中央に固定する部分
@@ -400,20 +452,24 @@ def main(page:flet.Page):
 
         # page.scroll=flet.ScrollMode.ALWAYS
         page.update()
-
+    global l
+    if not l:
+        l=threading.Thread(target=listen,daemon=True)
+        l.start()
+    else:
+        return page.window.destroy()
+    while not voice:
+        time.sleep(1)
     # イベントハンドラの登録
     page.on_route_change=route
     page.on_click=menu # 画面クリックでメニューに遷移
     page.run_task(update_time) # 時刻更新タスクを開始
-    page.run_task(get_chromecast_status)
+    page.run_task(update_chromecast_status)
     global current_time,max_time,is_playing
     current_time=0
     max_time=0
     is_playing=False
     page.run_task(playback_progress_update)
     page.run_task(update_lyrics)  # 歌詞更新タスクを開始
-    l=threading.Thread(target=listen,daemon=True)
-    l.start()
-    page.window.skip_task_bar=True
     page.go(page.route)
 flet.app(target=main)
