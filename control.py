@@ -69,6 +69,15 @@ def main(page:flet.Page):
                     if page.route=="/media":
                         page.update()
                     break
+            else:
+                is_playing=False
+                current_time=0
+                max_time=0
+                media_icon.src=""
+                media_info_text.value=""
+                if page.route=="/media":
+                    page.update()
+                    page.go("/")
         except:
             pass
     async def update_chromecast_status():
@@ -110,7 +119,7 @@ def main(page:flet.Page):
             if song:
                 return song.lyrics.splitlines()
             else:
-                return ["曲が見つかりませんでした"]
+                return ["歌詞が見つかりませんでした"]
         else:
             return ["歌詞を取得できません"]
     async def update_lyrics():
@@ -119,8 +128,11 @@ def main(page:flet.Page):
             global lyrics_text_list
             lyrics_text_list.controls.clear()
             lyrics=get_lyrics()
+            if len(lyrics)==1: #取得できなかったとき
+                interval=0.1
+            else:
+                interval = max_time / len(lyrics) -0.5
             temp_playing_title=playing_title
-            interval = max_time / len(lyrics) -0.5
             return lyrics,temp_playing_title,interval
         lyrics,temp_playing_title,interval=update()
         line=0
@@ -128,18 +140,16 @@ def main(page:flet.Page):
             if temp_playing_title!=playing_title:
                 lyrics,temp_playing_title,interval=update()
                 line=0
-            if current_time // interval > len(lyrics_text_list.controls):
+            while current_time // interval > len(lyrics_text_list.controls) and line < len(lyrics):
                 lyrics_text=flet.Text(size=40, text_align=flet.TextAlign.CENTER, color=flet.Colors.WHITE54)
                 lyrics_text.value = lyrics[line]
-                if len(lyrics)>line+1:
-                    line+=1
-                    lyrics_text_list.controls.append(lyrics_text)
-            elif current_time // interval < len(lyrics_text_list.controls):
+                lyrics_text_list.controls.append(lyrics_text)
+                line+=1
+            while current_time // interval < len(lyrics_text_list.controls):
                 line-=1
                 lyrics_text_list.controls.pop(-1)
             if page.route=="/media":
                 page.update()
-                # await asyncio.sleep(interval)  # 歌詞の更新間隔
             await asyncio.sleep(0.8)
     class VoiceControl(voice_control.VoiceControl):
         def yomiage(self, commands):
