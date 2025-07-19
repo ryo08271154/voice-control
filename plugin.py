@@ -46,6 +46,7 @@ class BasePlugin:
     is_plugin_mode=False
     keywords:list=[]
     required_config:list=[]
+    config_dir:str=os.path.join(dir_name,"config")
     def get_keywords(self) -> list:
         return self.keywords
     def get_config(self) -> dict:
