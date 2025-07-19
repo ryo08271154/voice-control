@@ -113,13 +113,16 @@ def main(page:flet.Page):
     def get_lyrics():
         global lyrics_text_list
         if playing_artist and playing_title:
-            token=voice.config.get("genius",{}).get("token")
-            genius=lyricsgenius.Genius(token)
-            song=genius.search_song(playing_title,playing_artist)
-            if song:
-                return song.lyrics.splitlines()
-            else:
-                return ["歌詞が見つかりませんでした"]
+            try:
+                token=voice.config.get("genius",{}).get("token")
+                genius=lyricsgenius.Genius(token)
+                song=genius.search_song(playing_title,playing_artist)
+                if song:
+                    return song.lyrics.splitlines()
+                else:
+                    return ["歌詞が見つかりませんでした"]
+            except:
+                return ["エラーが発生しました"]
         else:
             return ["歌詞を取得できません"]
     async def update_lyrics():
