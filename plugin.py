@@ -2,6 +2,7 @@ import importlib
 import inspect
 import os
 import json
+from voice_control import VoiceCommand
 dir_name=os.path.dirname(os.path.abspath(__file__))
 class PluginManager:
     def __init__(self,plugin_dir:str="plugins"):
@@ -53,5 +54,5 @@ class BasePlugin:
         return json.load(open(os.path.join(dir_name,"config/config.json"))).get("plugins_config",{}).get(self.name,{})
     def can_handle(self, text: str) -> bool:
         return any(keyword in text for keyword in self.keywords)
-    def execute(self,command):
+    def execute(self,command:VoiceCommand) -> VoiceCommand:
         return command
