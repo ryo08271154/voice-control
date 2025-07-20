@@ -2,7 +2,7 @@ import importlib
 import inspect
 import os
 import json
-from voice_control import VoiceCommand
+from commands import VoiceCommand
 dir_name=os.path.dirname(os.path.abspath(__file__))
 class PluginManager:
     def __init__(self,plugin_dir:str="plugins"):

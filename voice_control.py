@@ -14,12 +14,8 @@ import google.generativeai as genai
 import re
 import webrtcvad
 from plugin import PluginManager
+from commands import VoiceCommand
 dir_name=os.path.dirname(__file__)
-class VoiceCommand:
-    def __init__(self,user_input_text,action_type="default",reply_text=""):
-        self.user_input_text=user_input_text
-        self.action_type=action_type
-        self.reply_text=reply_text
 class VoiceRecognizer:
     mute=False
     def always_on_voice(self,model_path):
