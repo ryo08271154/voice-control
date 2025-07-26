@@ -60,7 +60,7 @@ class WatchList:
         count=soup.find("div",class_="title-section").find("p").text
         reviews=soup.find_all("a",class_="title-item")
         reply_text=""
-        for review in reviews:
+        for review in reviews[:5]:
             title=review.find("p").text
             review_title=review.find("h3").text
             reply_text+=f"タイトル{title}の{review_title} "
@@ -96,6 +96,21 @@ class WatchList:
                 return reply_text
         else:
             return "24時間以内に放送されたエピソードが見つかりませんでした"
+    def watch_schedule(self):
+        response=self.session.get(f"{self.server_url}/watch_schedule")
+        soup=BeautifulSoup(response.text,"html.parser")
+        reply_text=""
+        for day in soup.find_all("div",class_="title-section"):
+            date=day.find("h2").text
+            reply_text+=f"{date}に放送予定のエピソードは"
+            episodes=day.find("div",class_="title-container").find_all("a",class_="title-item")
+            count=len(episodes)
+            for episode in episodes:
+                data=episode.find_all("p")
+                title=data[1].text
+                reply_text+=f"タイトル{title} "
+                reply_text+=f"の{count}です。"
+        return reply_text
 from plugin import BasePlugin
 class WatchListPlugin(BasePlugin):
     name="watchlist"
@@ -113,6 +128,8 @@ class WatchListPlugin(BasePlugin):
             reply_text=self.session.monthly_review()
         elif "今日" in command.user_input_text:
             reply_text=self.session.today_episodes()
+        elif "予定" in command.user_input_text:
+            reply_text=self.session.watch_schedule()
         elif "視聴" in command.user_input_text or "見た" in command.user_input_text or "検索" in command.user_input_text:
             keyword=command.user_input_text.replace("視聴記録","").replace("見た","").replace("検索","").replace("の","").replace("で","").replace("して","")
             reply_text=self.session.review_search(keyword)
