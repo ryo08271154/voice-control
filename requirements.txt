@@ -9,3 +9,5 @@ PyAudio
 PyChromecast
 requests
 vosk
+lyricsgenius
+beautifulsoup4
