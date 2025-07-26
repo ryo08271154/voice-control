@@ -33,8 +33,6 @@ class VoiceRecognizer:
                         rate=16000,  # 16kHz に変更
                         input=True,
                         frames_per_buffer=frame_size)  # バッファサイズを適切に設定
-        temp_text="temp"
-        temp_text_count=0
         end_of_speech = True
         speech_end_time = time.time()
         while True:
@@ -45,34 +43,19 @@ class VoiceRecognizer:
                 is_speech = vad.is_speech(data,sample_rate)
                 if is_speech:
                     end_of_speech = False
-                    temp_text_count=0
-                    temp_text="temp"
                     speech_end_time = time.time() + 3  # 3秒無音で終了とみなす
                 elif not is_speech and time.time() > speech_end_time:
                     end_of_speech = True
+                    print("\r"+"音声待機中",end="")
                 if end_of_speech==False:
+                    print("\r"+"聞き取り中",end="")
                     if recognizer.AcceptWaveform(data):
-                        if temp_text_count<10 and self.mute==False:
+                        if self.mute==False:
+                            self.text=json.loads(recognizer.Result())["text"]
                             if self.text!="":
-                                print("認識結果:",self.text)
+                                print("\r"+"ユーザー:",self.text)
                                 end_of_speech = True
                                 threading.Thread(target=self.command,args=(self.text,)).start()
-                        temp_text="temp"
-                        temp_text_count=0
-                        self.mute=False
-                        self.text=json.loads(recognizer.Result())["text"]
-                    else:
-                        self.text=json.loads(recognizer.PartialResult())["partial"]
-                        if self.text!="":
-                            if self.text==temp_text:
-                                temp_text_count+=1
-                                if temp_text_count==10 and self.mute==False:
-                                    self.mute=True
-                                    print(self.text)
-                                    threading.Thread(target=self.command,args=(self.text,)).start()
-                            else:
-                                temp_text=self.text
-                                temp_text_count=0
             except KeyboardInterrupt:
                 break
 class VoiceControl(VoiceRecognizer):
@@ -161,7 +144,7 @@ class VoiceControl(VoiceRecognizer):
     def yomiage(self,commands):
         for command in commands:
             text=command.reply_text
-            print(text)
+            print("\r"+text)
             action=command.action_type
             self.mute=True
             try:
