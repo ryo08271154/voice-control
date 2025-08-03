@@ -76,7 +76,7 @@
        ]
      }
      ```
-   - **`custom_routines.json.json`**: カスタムルーチンの設定
+   - **`custom_routines.json`**: カスタムルーチンの設定
      ```json
      {
        "routineList": [
