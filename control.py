@@ -19,9 +19,10 @@ def main(page:flet.Page):
             global voice,c,l
             custom_scenes=json.load(open(os.path.join(dir_name,"config","custom_scenes.json")))
             custom_devices=json.load(open(os.path.join(dir_name,"config","custom_devices.json")))
+            custom_routines=json.load(open(os.path.join(dir_name,"config","custom_routines.json")))
             config=json.load(open(os.path.join(dir_name,"config","config.json")))
             c=voice_control.Control(custom_devices,custom_scenes)
-            voice=VoiceControl(c.custom_devices,c,config)
+            voice=VoiceControl(c.custom_devices,custom_routines,c,config)
             voice.words.extend(["教","何","ですか","なに","とは","について","ますか","して","開いて"])
             def run(config):
                 voice.always_on_voice(config["vosk"]["model_path"])

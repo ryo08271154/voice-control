@@ -44,7 +44,7 @@
      ```json
      {
        "mcpServers": {
-        // ... MCPの設定 ...
+
        }
      }
      ```
@@ -72,6 +72,21 @@
            "deviceName": "デバイス名",
            "turnOn": "オンにするコマンド",
            "turnOff": "オフにするコマンド"
+         }
+       ]
+     }
+     ```
+   - **`custom_routines.json.json`**: カスタムルーチンの設定
+     ```json
+     {
+       "routineList": [
+         {
+           "routineName": "おはよう",
+           "commands": [
+             "ライトつけて",
+             "エアコンつけて",
+             "今日の天気は"
+           ]
          }
        ]
      }

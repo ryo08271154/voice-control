@@ -22,7 +22,8 @@ class VoiceRecognizer:
     def always_on_voice(self,model_path):
         sample_rate = 16000
         model=vosk.Model(model_path)
-        recognizer=vosk.KaldiRecognizer(model, 16000)
+        recognizer=vosk.KaldiRecognizer(model, sample_rate)
+        recognizer.SetPartialWords(False)
         # PyAudioの設定
         p = pyaudio.PyAudio()
         vad = webrtcvad.Vad(2)
@@ -31,7 +32,7 @@ class VoiceRecognizer:
         frame_bytes = frame_size * 2  # 16-bit audio
         stream = p.open(format=pyaudio.paInt16,
                         channels=1,
-                        rate=16000,  # 16kHz に変更
+                        rate=sample_rate,  # 16kHz に変更
                         input=True,
                         frames_per_buffer=frame_size)  # バッファサイズを適切に設定
         end_of_speech = True
@@ -60,7 +61,7 @@ class VoiceRecognizer:
             except KeyboardInterrupt:
                 break
 class VoiceControl(VoiceRecognizer):
-    def __init__(self,custom_devices,control,config):
+    def __init__(self,custom_devices,custom_routines,control,config):
         self.words=[]
         self.custom_devices_name=[i["deviceName"] for i in custom_devices["deviceList"]]
         self.words.extend(self.custom_devices_name)
@@ -73,6 +74,8 @@ class VoiceControl(VoiceRecognizer):
         self.text=""
         self.plugin_manager=PluginManager()
         self.plugins=self.plugin_manager.load_plugins()
+        self.custom_routines=custom_routines
+        self.routine_list=[routine for routine in self.custom_routines["routineList"]]
     def judge(self,command):
         text=command.user_input_text
         action=None
@@ -113,16 +116,20 @@ class VoiceControl(VoiceRecognizer):
         text=text.replace(" ","")
         text=unicodedata.normalize("NFKC",text)
         commands=[]
-        for plugin in self.plugins:
-            command=VoiceCommand(text)
-            if plugin.can_handle(text) or plugin.is_plugin_mode:
-                try:
-                    command=plugin.execute(command)
-                    if command.reply_text!="":
-                        commands.append(command)
-                except Exception as e:
-                    print(f"プラグイン {plugin.name} の実行中にエラーが発生しました: {e}")
+        for routine in self.routine_list:
+            if routine["routineName"] in text:
+                self.execute_routine(routine["routineName"])
+                break
         else:
+            for plugin in self.plugins:
+                command=VoiceCommand(text)
+                if plugin.can_handle(text) or plugin.is_plugin_mode:
+                    try:
+                        command=plugin.execute(command)
+                        if command.reply_text!="":
+                            commands.append(command)
+                    except Exception as e:
+                        print(f"プラグイン {plugin.name} の実行中にエラーが発生しました: {e}")
             if not commands:
                 for i in self.words:
                     if i in text:
@@ -166,6 +173,12 @@ class VoiceControl(VoiceRecognizer):
             reply_text=f"エラーが発生しました"
             print(e)
         return reply_text
+    def execute_routine(self,routine_name):
+        for routine in self.routine_list:
+            if routine["routineName"]==routine_name:
+                for command in routine["commands"]:
+                    self.command(command)
+                break
     def yomiage(self,commands):
         for command in commands:
             text=command.reply_text
@@ -209,9 +222,10 @@ class Control:
 def run():
     custom_scenes=json.load(open(os.path.join(dir_name,"config","custom_scenes.json")))
     custom_devices=json.load(open(os.path.join(dir_name,"config","custom_devices.json")))
+    custom_routines=json.load(open(os.path.join(dir_name,"config","custom_routines.json")))
     config=json.load(open(os.path.join(dir_name,"config","config.json")))
     c=Control(custom_devices,custom_scenes)
-    voice=VoiceControl(c.custom_devices,c,config)
+    voice=VoiceControl(c.custom_devices,custom_routines,c,config)
     voice.words.extend(["教","何","ですか","なに","とは","について","ますか","して","開いて"])
     voice.always_on_voice(config["vosk"]["model_path"])
 if __name__=="__main__":

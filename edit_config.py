@@ -5,11 +5,14 @@ dir_name=os.path.dirname(__file__)
 def setup():
     custom_devices={"deviceList": []}
     custom_scenes={"sceneList": []}
+    custom_routines={"routineList": []}
     os.makedirs(f"{dir_name}/config",exist_ok=True)
     with open(f"{dir_name}/config/custom_devices.json","w") as f:
         json.dump(custom_devices,f,indent=2)
     with open(f"{dir_name}/config/custom_scenes.json","w") as f:
         json.dump(custom_scenes,f,indent=2)
+    with open(f"{dir_name}/config/custom_routines.json","w") as f:
+        json.dump(custom_routines,f,indent=2)
 def plugin_list():
     plugin_manager=PluginManager()
     plugins=plugin_manager.get_plugins()
