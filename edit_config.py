@@ -5,11 +5,14 @@ dir_name=os.path.dirname(__file__)
 def setup():
     custom_devices={"deviceList": []}
     custom_scenes={"sceneList": []}
+    custom_routines={"routineList": []}
     os.makedirs(f"{dir_name}/config",exist_ok=True)
     with open(f"{dir_name}/config/custom_devices.json","w") as f:
         json.dump(custom_devices,f,indent=2)
     with open(f"{dir_name}/config/custom_scenes.json","w") as f:
         json.dump(custom_scenes,f,indent=2)
+    with open(f"{dir_name}/config/custom_routines.json","w") as f:
+        json.dump(custom_routines,f,indent=2)
 def plugin_list():
     plugin_manager=PluginManager()
     plugins=plugin_manager.get_plugins()
@@ -62,7 +65,7 @@ if __name__ == '__main__':
     genius_api_token=input("GeniusのAPIトークンを入力してください:") or config.get("genius",{}).get("token","")
     yomiage_server_url=input("音声読み上げサーバーのURLを入力してください:") or config.get("server",{}).get("url","")
     plugins,plugins_config=plugin_config()
-    config={"vosk":{"model_path":vosk_model_path},"genai":{"apikey":genai_apikey,"model_name":genai_model,"system_instruction":genai_system_instruction},"genius":{"token":genius_api_token},"server":{"url":yomiage_server_url,"action":config.get("server",{}).get("action","command"),"reply_text":config.get("server",{}).get("reply_text","message")},"plugins":plugins,"plugins_config":plugins_config}
+    config={"vosk":{"model_path":vosk_model_path},"genai":{"apikey":genai_apikey,"model_name":genai_model,"system_instruction":genai_system_instruction},"mcpServers":{} or config.get("mcpServers",{}),"genius":{"token":genius_api_token},"server":{"url":yomiage_server_url,"action":config.get("server",{}).get("action","command"),"reply_text":config.get("server",{}).get("reply_text","message")},"plugins":plugins,"plugins_config":plugins_config}
     with open(f"{dir_name}/config/config.json","w") as f:
         json.dump(config,f,indent=2)
         print("設定が保存されました。")

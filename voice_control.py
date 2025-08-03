@@ -10,9 +10,10 @@ import datetime
 import time
 import unicodedata
 import numpy as np
-import google.generativeai as genai
+from google import genai
 import re
 import webrtcvad
+import fastmcp
 from plugin import PluginManager
 from commands import VoiceCommand
 dir_name=os.path.dirname(__file__)
@@ -21,7 +22,8 @@ class VoiceRecognizer:
     def always_on_voice(self,model_path):
         sample_rate = 16000
         model=vosk.Model(model_path)
-        recognizer=vosk.KaldiRecognizer(model, 16000)
+        recognizer=vosk.KaldiRecognizer(model, sample_rate)
+        recognizer.SetPartialWords(False)
         # PyAudioの設定
         p = pyaudio.PyAudio()
         vad = webrtcvad.Vad(2)
@@ -30,11 +32,9 @@ class VoiceRecognizer:
         frame_bytes = frame_size * 2  # 16-bit audio
         stream = p.open(format=pyaudio.paInt16,
                         channels=1,
-                        rate=16000,  # 16kHz に変更
+                        rate=sample_rate,  # 16kHz に変更
                         input=True,
                         frames_per_buffer=frame_size)  # バッファサイズを適切に設定
-        temp_text="temp"
-        temp_text_count=0
         end_of_speech = True
         speech_end_time = time.time()
         while True:
@@ -45,51 +45,37 @@ class VoiceRecognizer:
                 is_speech = vad.is_speech(data,sample_rate)
                 if is_speech:
                     end_of_speech = False
-                    temp_text_count=0
-                    temp_text="temp"
                     speech_end_time = time.time() + 3  # 3秒無音で終了とみなす
                 elif not is_speech and time.time() > speech_end_time:
                     end_of_speech = True
+                    print("\r"+"音声待機中",end="")
                 if end_of_speech==False:
+                    print("\r"+"聞き取り中",end="")
                     if recognizer.AcceptWaveform(data):
-                        if temp_text_count<10 and self.mute==False:
+                        if self.mute==False:
+                            self.text=json.loads(recognizer.Result())["text"]
                             if self.text!="":
-                                print("認識結果:",self.text)
+                                print("\r"+"ユーザー:",self.text)
                                 end_of_speech = True
                                 threading.Thread(target=self.command,args=(self.text,)).start()
-                        temp_text="temp"
-                        temp_text_count=0
-                        self.mute=False
-                        self.text=json.loads(recognizer.Result())["text"]
-                    else:
-                        self.text=json.loads(recognizer.PartialResult())["partial"]
-                        if self.text!="":
-                            if self.text==temp_text:
-                                temp_text_count+=1
-                                if temp_text_count==10 and self.mute==False:
-                                    self.mute=True
-                                    print(self.text)
-                                    threading.Thread(target=self.command,args=(self.text,)).start()
-                            else:
-                                temp_text=self.text
-                                temp_text_count=0
             except KeyboardInterrupt:
                 break
 class VoiceControl(VoiceRecognizer):
-    def __init__(self,custom_devices,control,config):
+    def __init__(self,custom_devices,custom_routines,control,config):
         self.words=[]
         self.custom_devices_name=[i["deviceName"] for i in custom_devices["deviceList"]]
         self.words.extend(self.custom_devices_name)
         self.control=control
-        genai.configure(api_key=config["genai"]["apikey"])
         self.config=config
-        self.model = genai.GenerativeModel(model_name=config["genai"]["model_name"],system_instruction=config["genai"]["system_instruction"],generation_config={"max_output_tokens": 100})
-        self.chat=self.model.start_chat(history=[])
+        self.genai_client=genai.Client(api_key=config["genai"]["apikey"])
+        self.mcp_servers=config.get("mcpServers")
         self.url=config["server"]["url"]
         self.reply=""
         self.text=""
         self.plugin_manager=PluginManager()
         self.plugins=self.plugin_manager.load_plugins()
+        self.custom_routines=custom_routines
+        self.routine_list=[routine for routine in self.custom_routines["routineList"]]
     def judge(self,command):
         text=command.user_input_text
         action=None
@@ -102,7 +88,7 @@ class VoiceControl(VoiceRecognizer):
             device_name=[ i for i in self.custom_devices_name if i in text]
             if device_name:
                 action="turnOff"
-        if "教え" in text or "ついて" in text or "何" in text or "なに" in text:
+        if "教え" in text or "ついて" in text or "何" in text or "なに" in text or "して" in text or "開いて" in text:
             num=re.sub(r"\D","",text)
             if num=="":
                 entities_replace=[]
@@ -112,11 +98,12 @@ class VoiceControl(VoiceRecognizer):
         if ("今" in text or "現在" in text or "何" in text or "なん" in text) and ("年" in text or "月" in text or"日" in text) and not "天気" in text:
             action="now_day"
         if action==None: #判別できなかったとき
-            return command
+            action=="ai"
+            entities_replace=[]
         if action in ['turnOn','turnOff']:
             response+=self.control.custom_device_control(device_name,action)
         if action=='ai':
-            response=self.ai(text,entities_replace)
+            response=self.ask_gemini(text,entities_replace)
         if action=='now_time':
             response=datetime.datetime.now().strftime("%H時%M分です")
         if action=='now_day':
@@ -129,16 +116,20 @@ class VoiceControl(VoiceRecognizer):
         text=text.replace(" ","")
         text=unicodedata.normalize("NFKC",text)
         commands=[]
-        for plugin in self.plugins:
-            command=VoiceCommand(text)
-            if plugin.can_handle(text) or plugin.is_plugin_mode:
-                try:
-                    command=plugin.execute(command)
-                    if command.reply_text!="":
-                        commands.append(command)
-                except Exception as e:
-                    print(f"プラグイン {plugin.name} の実行中にエラーが発生しました: {e}")
+        for routine in self.routine_list:
+            if routine["routineName"] in text:
+                self.execute_routine(routine["routineName"])
+                break
         else:
+            for plugin in self.plugins:
+                command=VoiceCommand(text)
+                if plugin.can_handle(text) or plugin.is_plugin_mode:
+                    try:
+                        command=plugin.execute(command)
+                        if command.reply_text!="":
+                            commands.append(command)
+                    except Exception as e:
+                        print(f"プラグイン {plugin.name} の実行中にエラーが発生しました: {e}")
             if not commands:
                 for i in self.words:
                     if i in text:
@@ -148,20 +139,50 @@ class VoiceControl(VoiceRecognizer):
                     self.control.custom_scene_control(text)
         if commands or self.reply!="":
             self.yomiage(commands)
-    def ai(self,text,entities):
+    def ask_gemini(self,text,entities):
         print("AIが回答します")
         for name in entities:
             for e in entities[name]:
                 text=text.replace(e["body"],f'{e["body"]}({str(e["value"])})')
         try:
-            response = self.chat.send_message(text).text.replace("\n","")
-        except:
-            response="エラーが発生しました"
-        return response
+            async def generate_content(text,tools):
+                response = await self.genai_client.aio.models.generate_content(
+                        model=self.config["genai"]["model_name"],
+                        contents=text,
+                        config=genai.types.GenerateContentConfig(
+                            temperature=0,
+                            tools=tools,
+                            system_instruction=self.config["genai"]["system_instruction"],
+                            ),
+                        )
+                return response
+            async def mcp_generate_content(text):
+                mcp_client = fastmcp.Client(self.mcp_servers)
+                async with mcp_client:
+                    await mcp_client.ping()
+                    tools = await mcp_client.list_tools()
+                    tools=[mcp_client.session]
+                    response = await generate_content(text,tools)
+                    return response
+            if self.mcp_servers:
+                genai_response=asyncio.run(mcp_generate_content(text))
+            else:
+                genai_response=asyncio.run(generate_content(text,[]))
+            reply_text=genai_response.text.replace("\n","")
+        except Exception as e:
+            reply_text=f"エラーが発生しました"
+            print(e)
+        return reply_text
+    def execute_routine(self,routine_name):
+        for routine in self.routine_list:
+            if routine["routineName"]==routine_name:
+                for command in routine["commands"]:
+                    self.command(command)
+                break
     def yomiage(self,commands):
         for command in commands:
             text=command.reply_text
-            print(text)
+            print("\r"+text)
             action=command.action_type
             self.mute=True
             try:
@@ -201,10 +222,11 @@ class Control:
 def run():
     custom_scenes=json.load(open(os.path.join(dir_name,"config","custom_scenes.json")))
     custom_devices=json.load(open(os.path.join(dir_name,"config","custom_devices.json")))
+    custom_routines=json.load(open(os.path.join(dir_name,"config","custom_routines.json")))
     config=json.load(open(os.path.join(dir_name,"config","config.json")))
     c=Control(custom_devices,custom_scenes)
-    voice=VoiceControl(c.custom_devices,c,config)
-    voice.words.extend(["教","何","ですか","なに","とは","について","ますか"])
+    voice=VoiceControl(c.custom_devices,custom_routines,c,config)
+    voice.words.extend(["教","何","ですか","なに","とは","について","ますか","して","開いて"])
     voice.always_on_voice(config["vosk"]["model_path"])
 if __name__=="__main__":
     run()
