@@ -340,12 +340,18 @@ def main(page:flet.Page):
 
                                 ],scroll=flet.ScrollMode.HIDDEN))
         if page.route=="/menu":
+            input_field=flet.TextField(label="音声コマンドを入力", on_submit=lambda e: command(e.control.value),expand=True,text_align=flet.TextAlign.CENTER,text_size=20)
             page.views.append(flet.View("/menu",[
                 flet.ElevatedButton("ホーム",on_click=lambda e:page.go("/")),
                 flet.ElevatedButton("デバイス一覧", on_click=lambda e: page.go("/devices")),
                 flet.ElevatedButton("メディア操作", on_click=lambda e: page.go("/media")), # メディア操作ボタンを追加
                 flet.ElevatedButton("ヘルプ", on_click=lambda e: page.go("/help")),
                 flet.ElevatedButton("設定", on_click=lambda e: page.go("/settings")),
+                flet.Container(content=flet.Row(
+                    controls=[
+                        input_field,
+                        flet.IconButton(icon=flet.icons.SEND,on_click=lambda e: command(input_field.value))
+                    ])),
                 menu_list(),
             ],scroll=flet.ScrollMode.HIDDEN))
         if page.route=="/device_control":
