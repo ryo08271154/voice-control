@@ -2,8 +2,7 @@ flet
 flet-cli
 flet-desktop
 flet-web
-google-ai-generativelanguage
-google-generativeai
+google-genai
 numpy
 PyAudio
 PyChromecast
@@ -11,3 +10,4 @@ requests
 vosk
 lyricsgenius
 beautifulsoup4
+fastmcp

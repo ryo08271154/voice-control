@@ -39,6 +39,15 @@
    - 使用するプラグインの選択と設定
 
    設定が完了すると、`config/config.json`が自動的に作成されます。
+   - **MCPの設定（任意）**:
+      GeminiでMCPを使用する場合、`config/config.json`に手動で追加する必要があります。
+     ```json
+     {
+       "mcpServers": {
+
+       }
+     }
+     ```
 
 5. 必要に応じて、カスタムデバイスやシーンを設定できます。
    `config`ディレクトリ内の以下のJSONファイルを編集してください：
@@ -63,6 +72,21 @@
            "deviceName": "デバイス名",
            "turnOn": "オンにするコマンド",
            "turnOff": "オフにするコマンド"
+         }
+       ]
+     }
+     ```
+   - **`custom_routines.json`**: カスタムルーチンの設定
+     ```json
+     {
+       "routineList": [
+         {
+           "routineName": "おはよう",
+           "commands": [
+             "ライトつけて",
+             "エアコンつけて",
+             "今日の天気は"
+           ]
          }
        ]
      }
