@@ -22,7 +22,7 @@ def main(page:flet.Page):
             config=json.load(open(os.path.join(dir_name,"config","config.json")))
             c=voice_control.Control(custom_devices,custom_scenes)
             voice=VoiceControl(c.custom_devices,c,config)
-            voice.words.extend(["教","何","ですか","なに","とは","について","ますか"])
+            voice.words.extend(["教","何","ですか","なに","とは","について","ますか","して","開いて"])
             def run(config):
                 voice.always_on_voice(config["vosk"]["model_path"])
             run(config)

@@ -10,9 +10,10 @@ import datetime
 import time
 import unicodedata
 import numpy as np
-import google.generativeai as genai
+from google import genai
 import re
 import webrtcvad
+import fastmcp
 from plugin import PluginManager
 from commands import VoiceCommand
 dir_name=os.path.dirname(__file__)
@@ -64,10 +65,9 @@ class VoiceControl(VoiceRecognizer):
         self.custom_devices_name=[i["deviceName"] for i in custom_devices["deviceList"]]
         self.words.extend(self.custom_devices_name)
         self.control=control
-        genai.configure(api_key=config["genai"]["apikey"])
         self.config=config
-        self.model = genai.GenerativeModel(model_name=config["genai"]["model_name"],system_instruction=config["genai"]["system_instruction"],generation_config={"max_output_tokens": 100})
-        self.chat=self.model.start_chat(history=[])
+        self.genai_client=genai.Client(api_key=config["genai"]["apikey"])
+        self.mcp_servers=config.get("mcpServers")
         self.url=config["server"]["url"]
         self.reply=""
         self.text=""
@@ -85,7 +85,7 @@ class VoiceControl(VoiceRecognizer):
             device_name=[ i for i in self.custom_devices_name if i in text]
             if device_name:
                 action="turnOff"
-        if "教え" in text or "ついて" in text or "何" in text or "なに" in text:
+        if "教え" in text or "ついて" in text or "何" in text or "なに" in text or "して" in text or "開いて" in text:
             num=re.sub(r"\D","",text)
             if num=="":
                 entities_replace=[]
@@ -95,11 +95,12 @@ class VoiceControl(VoiceRecognizer):
         if ("今" in text or "現在" in text or "何" in text or "なん" in text) and ("年" in text or "月" in text or"日" in text) and not "天気" in text:
             action="now_day"
         if action==None: #判別できなかったとき
-            return command
+            action=="ai"
+            entities_replace=[]
         if action in ['turnOn','turnOff']:
             response+=self.control.custom_device_control(device_name,action)
         if action=='ai':
-            response=self.ai(text,entities_replace)
+            response=self.ask_gemini(text,entities_replace)
         if action=='now_time':
             response=datetime.datetime.now().strftime("%H時%M分です")
         if action=='now_day':
@@ -131,16 +132,40 @@ class VoiceControl(VoiceRecognizer):
                     self.control.custom_scene_control(text)
         if commands or self.reply!="":
             self.yomiage(commands)
-    def ai(self,text,entities):
+    def ask_gemini(self,text,entities):
         print("AIが回答します")
         for name in entities:
             for e in entities[name]:
                 text=text.replace(e["body"],f'{e["body"]}({str(e["value"])})')
         try:
-            response = self.chat.send_message(text).text.replace("\n","")
-        except:
-            response="エラーが発生しました"
-        return response
+            async def generate_content(text,tools):
+                response = await self.genai_client.aio.models.generate_content(
+                        model=self.config["genai"]["model_name"],
+                        contents=text,
+                        config=genai.types.GenerateContentConfig(
+                            temperature=0,
+                            tools=tools,
+                            system_instruction=self.config["genai"]["system_instruction"],
+                            ),
+                        )
+                return response
+            async def mcp_generate_content(text):
+                mcp_client = fastmcp.Client(self.mcp_servers)
+                async with mcp_client:
+                    await mcp_client.ping()
+                    tools = await mcp_client.list_tools()
+                    tools=[mcp_client.session]
+                    response = await generate_content(text,tools)
+                    return response
+            if self.mcp_servers:
+                genai_response=asyncio.run(mcp_generate_content(text))
+            else:
+                genai_response=asyncio.run(generate_content(text,[]))
+            reply_text=genai_response.text.replace("\n","")
+        except Exception as e:
+            reply_text=f"エラーが発生しました"
+            print(e)
+        return reply_text
     def yomiage(self,commands):
         for command in commands:
             text=command.reply_text
@@ -187,7 +212,7 @@ def run():
     config=json.load(open(os.path.join(dir_name,"config","config.json")))
     c=Control(custom_devices,custom_scenes)
     voice=VoiceControl(c.custom_devices,c,config)
-    voice.words.extend(["教","何","ですか","なに","とは","について","ますか"])
+    voice.words.extend(["教","何","ですか","なに","とは","について","ますか","して","開いて"])
     voice.always_on_voice(config["vosk"]["model_path"])
 if __name__=="__main__":
     run()
