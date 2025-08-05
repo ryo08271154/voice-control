@@ -80,6 +80,11 @@ class VoiceControl(VoiceRecognizer):
         text=command.user_input_text
         action=None
         response=""
+        if "教え" in text or "ついて" in text or "何" in text or "なに" in text or "して" in text or "開いて" in text:
+            num=re.sub(r"\D","",text)
+            if num=="":
+                entities_replace=[]
+                action="ai"
         if "つけ" in text or "付け" in text or "オン" in text:
             device_name=[ i for i in self.custom_devices_name if i in text]
             if device_name:
@@ -88,11 +93,6 @@ class VoiceControl(VoiceRecognizer):
             device_name=[ i for i in self.custom_devices_name if i in text]
             if device_name:
                 action="turnOff"
-        if "教え" in text or "ついて" in text or "何" in text or "なに" in text or "して" in text or "開いて" in text:
-            num=re.sub(r"\D","",text)
-            if num=="":
-                entities_replace=[]
-                action="ai"
         if ("今" in text or "現在" in text or "何" in text or "なん" in text) and ("時" in text) and not "天気" in text:
             action="now_time"
         if ("今" in text or "現在" in text or "何" in text or "なん" in text) and ("年" in text or "月" in text or"日" in text) and not "天気" in text:
