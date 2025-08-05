@@ -12,7 +12,7 @@ voice=None
 l=None
 chromecasts, browser = pychromecast.get_chromecasts()
 def main(page:flet.Page):
-    def listen():
+    def voice_control_setup():
         try:
             import json
             dir_name=os.path.dirname(__file__)
@@ -23,10 +23,13 @@ def main(page:flet.Page):
             config=json.load(open(os.path.join(dir_name,"config","config.json")))
             c=voice_control.Control(custom_devices,custom_scenes)
             voice=VoiceControl(c.custom_devices,custom_routines,c,config)
-            voice.words.extend(["教","何","ですか","なに","とは","について","ますか","して","開いて"])
-            def run(config):
+            def listen(config):
                 voice.always_on_voice(config["vosk"]["model_path"])
-            run(config)
+            if not l:
+                l=threading.Thread(target=listen,args=(config,),daemon=True)
+                l.start()
+            else:
+                return page.window.destroy()
         except Exception as e:
             print(f"音声認識の初期化中にエラーが発生しました: {e}")
     def menu(e):
@@ -391,6 +394,7 @@ def main(page:flet.Page):
                         flet.ElevatedButton("ホーム", on_click=lambda e: page.go("/")),
                         flet.Text("設定", size=30, weight=flet.FontWeight.BOLD),
                         flet.Switch(label="フルスクリーンモード", value=page.window.full_screen, on_change=voice_screen),
+                        flet.Switch(label="ミュート", value=voice.mute, on_change=lambda e: setattr(voice, 'mute', e.control.value)),
                     ],
                 )
             )
@@ -469,12 +473,8 @@ def main(page:flet.Page):
             )
 
         page.update()
-    global l
-    if not l:
-        l=threading.Thread(target=listen,daemon=True)
-        l.start()
-    else:
-        return page.window.destroy()
+
+    voice_control_setup()
     while not voice:
         time.sleep(1)
     # イベントハンドラの登録
