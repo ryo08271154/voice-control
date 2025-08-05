@@ -344,13 +344,13 @@ def main(page:flet.Page):
             page.views.append(flet.View("/menu",[
                 flet.ElevatedButton("ホーム",on_click=lambda e:page.go("/")),
                 flet.ElevatedButton("デバイス一覧", on_click=lambda e: page.go("/devices")),
-                flet.ElevatedButton("メディア操作", on_click=lambda e: page.go("/media")), # メディア操作ボタンを追加
+                flet.ElevatedButton("メディア操作", on_click=lambda e: page.go("/media")),
                 flet.ElevatedButton("ヘルプ", on_click=lambda e: page.go("/help")),
                 flet.ElevatedButton("設定", on_click=lambda e: page.go("/settings")),
                 flet.Container(content=flet.Row(
                     controls=[
                         input_field,
-                        flet.IconButton(icon=flet.icons.SEND,on_click=lambda e: command(input_field.value))
+                        flet.IconButton(icon=flet.Icons.SEND,on_click=lambda e: command(input_field.value))
                     ])),
                 menu_list(),
             ],scroll=flet.ScrollMode.HIDDEN))
@@ -394,7 +394,6 @@ def main(page:flet.Page):
                     ],
                 )
             )
-        # メディア操作画面を追加
         if page.route == "/media":
             nowtime.size=20
             page.views.append(
@@ -469,7 +468,6 @@ def main(page:flet.Page):
             )
             )
 
-        # page.scroll=flet.ScrollMode.ALWAYS
         page.update()
     global l
     if not l:

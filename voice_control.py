@@ -45,12 +45,12 @@ class VoiceRecognizer:
                 is_speech = vad.is_speech(data,sample_rate)
                 if is_speech:
                     end_of_speech = False
+                    print("\r"+"聞き取り中",end="")
                     speech_end_time = time.time() + 3  # 3秒無音で終了とみなす
                 elif not is_speech and time.time() > speech_end_time:
                     end_of_speech = True
                     print("\r"+"音声待機中",end="")
                 if end_of_speech==False:
-                    print("\r"+"聞き取り中",end="")
                     if recognizer.AcceptWaveform(data):
                         if self.mute==False:
                             self.text=json.loads(recognizer.Result())["text"]
@@ -93,9 +93,9 @@ class VoiceControl(VoiceRecognizer):
             device_name=[ i for i in self.custom_devices_name if i in text]
             if device_name:
                 action="turnOff"
-        if ("今" in text or "現在" in text or "何" in text or "なん" in text) and ("時" in text) and not "天気" in text:
+        if ("今" in text or "現在" in text) and ("時" in text) and not "天気" in text:
             action="now_time"
-        if ("今" in text or "現在" in text or "何" in text or "なん" in text) and ("年" in text or "月" in text or"日" in text) and not "天気" in text:
+        if "今日" in text and "何日" in text:
             action="now_day"
         if action==None: #判別できなかったとき
             action=="ai"
