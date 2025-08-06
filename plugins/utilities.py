@@ -49,8 +49,29 @@ class RSSPlugin(BasePlugin):
             root=ET.fromstring(rss_feed.text)
             items=root.findall(".//item")
             rss_title=root.find("./channel/title")
-            reply_text += f"{rss_title.text} の最新ニュースです "
+            reply_text += f"{rss_title.text} からです "
             for item in items[:5]: #最新5件のニュースを取得
                     reply_text += f"{item.find('title').text} "
         command.reply_text = reply_text
+        return super().execute(command)
+
+import webbrowser
+class SearchPlugin(BasePlugin):
+    name="WebSearch"
+    description="Webで検索する"
+    keywords=["検索", "ウェブ"]
+    def execute(self, command):
+        query=command.user_input_text.replace("検索","").replace("する","").replace("して","").replace("で","")
+        if not query:
+            if self.is_plugin_mode==False:
+                command.reply_text="検索するキーワードを教えて下さい"
+                self.is_plugin_mode=True
+            else:
+                self.is_plugin_mode=False
+                command.reply_text="検索キーワードが指定されていません。"
+            return super().execute(command)
+        self.is_plugin_mode=False
+        search_url = f"https://www.google.com/search?q={query}"
+        command.reply_text = f"Webで「{query}」を検索します。ブラウザで開きます。"
+        webbrowser.open(search_url)
         return super().execute(command)
