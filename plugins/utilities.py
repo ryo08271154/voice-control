@@ -61,7 +61,7 @@ class SearchPlugin(BasePlugin):
     description="Webで検索する"
     keywords=["検索", "ウェブ"]
     def execute(self, command):
-        query=command.user_input_text.replace("検索","").replace("する","").replace("して","").replace("で","")
+        query=command.user_input_text.replace("検索","").replace("ウェブ","").replace("する","").replace("して","").replace("で","")
         if not query:
             if self.is_plugin_mode==False:
                 command.reply_text="検索するキーワードを教えて下さい"
@@ -73,7 +73,7 @@ class SearchPlugin(BasePlugin):
         self.is_plugin_mode=False
         search_url = f"https://www.google.com/search?q={query}"
         command.reply_text = f"Webで「{query}」を検索します。ブラウザで開きます。"
-        webbrowser.open(search_url)
+        webbrowser.open(search_url,autoraise=True)
         return super().execute(command)
 class TimerPlugin(BasePlugin):
     name="Timer"
@@ -81,6 +81,16 @@ class TimerPlugin(BasePlugin):
     keywords=["タイマー"]
     def execute(self, command):
         text=command.user_input_text
+        if "消" in text or "けし" in text or "キャンセル" in text or "やめ" in text or "終" in text:
+            command.reply_text="最後のタイマーをキャンセルしました。"
+            self.notifications.pop(-1)
+            return super().execute(command)
+        elif "あと" in text or "残" in text:
+            for notification in self.notifications:
+                notification_time=notification.timestamp
+                remaining_time=notification_time-time.time()
+                command.reply_text+=f"タイマーはあと{int(remaining_time)}秒です。"
+            return super().execute(command)
         minutes=0
         seconds=0
         text=text.replace("一", "1").replace("二", "2").replace("三", "3").replace("四", "4").replace("五", "5").replace("六", "6").replace("七", "7").replace("八", "8").replace("九", "9").replace("十", "10").replace("百", "100")
