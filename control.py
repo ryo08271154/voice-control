@@ -327,6 +327,11 @@ def main(page:flet.Page):
                     break
         except:
             pass
+    def notifications_list_panel():
+        lv=flet.ListView(spacing=10,padding=20)
+        for notification in voice.notifications:
+            lv.controls.append(flet.Container(content=flet.Text(f"{notification.plugin_name} - {notification.message}"),bgcolor=flet.Colors.WHITE10,padding=10,border_radius=5))
+        return lv
     def route(e):
         page.views.clear()
 
@@ -348,6 +353,7 @@ def main(page:flet.Page):
                 flet.ElevatedButton("ホーム",on_click=lambda e:page.go("/")),
                 flet.ElevatedButton("デバイス一覧", on_click=lambda e: page.go("/devices")),
                 flet.ElevatedButton("メディア操作", on_click=lambda e: page.go("/media")),
+                flet.ElevatedButton("通知", on_click=lambda e: page.go("/notifications")),
                 flet.ElevatedButton("ヘルプ", on_click=lambda e: page.go("/help")),
                 flet.ElevatedButton("設定", on_click=lambda e: page.go("/settings")),
                 flet.Container(content=flet.Row(
@@ -471,6 +477,17 @@ def main(page:flet.Page):
                 scroll=None
             )
             )
+        if page.route=="/notifications":
+            page.views.append(
+                flet.View(
+                    "/notifications",
+                    [
+                        flet.ElevatedButton("ホーム", on_click=lambda e: page.go("/")),
+                        flet.Text("通知", size=30, weight=flet.FontWeight.BOLD),
+                        notifications_list_panel()
+                    ]
+                    )
+                )
 
         page.update()
 

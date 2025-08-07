@@ -50,14 +50,13 @@ class VoiceRecognizer:
                 elif not is_speech and time.time() > speech_end_time:
                     end_of_speech = True
                     print("音声待機中",end="\r")
-                if end_of_speech==False:
+                if end_of_speech==False and self.mute==False:
                     if recognizer.AcceptWaveform(data):
-                        if self.mute==False:
-                            self.text=json.loads(recognizer.Result())["text"]
-                            if self.text!="":
-                                print("ユーザー:",self.text)
-                                end_of_speech = True
-                                threading.Thread(target=self.command,args=(self.text,)).start()
+                        self.text=json.loads(recognizer.Result())["text"]
+                        if self.text!="":
+                            print("ユーザー:",self.text)
+                            end_of_speech = True
+                            threading.Thread(target=self.command,args=(self.text,)).start()
             except KeyboardInterrupt:
                 break
 class VoiceControl(VoiceRecognizer):
@@ -190,7 +189,9 @@ class VoiceControl(VoiceRecognizer):
         while True:
             notifications=self.check_notification()
             if notifications:
-                self.yomiage([VoiceCommand(user_input_text="",action_type="notification",reply_text="新しい通知があります")])
+                commands=[VoiceCommand(user_input_text="",action_type="notification",reply_text=f"新しい通知があります")]
+                commands.extend([VoiceCommand(user_input_text="",action_type="notification",reply_text=f"{notification.message}") for notification in notifications])
+                self.yomiage(commands)
                 self.notifications.extend(notifications)
             time.sleep(1)
     def check_notification(self):
