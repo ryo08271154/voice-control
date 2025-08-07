@@ -75,3 +75,31 @@ class SearchPlugin(BasePlugin):
         command.reply_text = f"Webで「{query}」を検索します。ブラウザで開きます。"
         webbrowser.open(search_url)
         return super().execute(command)
+class TimerPlugin(BasePlugin):
+    name="Timer"
+    description="タイマーを設定する"
+    keywords=["タイマー"]
+    def execute(self, command):
+        text=command.user_input_text
+        minutes=0
+        seconds=0
+        text=text.replace("一", "1").replace("二", "2").replace("三", "3").replace("四", "4").replace("五", "5").replace("六", "6").replace("七", "7").replace("八", "8").replace("九", "9").replace("十", "10").replace("百", "100")
+        if "分" in text:
+            minutes_match=re.search(r"(\d+)分",text)
+            if minutes_match:
+                minutes=int(minutes_match.group(1))
+        if "秒" in text:
+            seconds_match=re.search(r"(\d+)秒",text)
+            if seconds_match:
+                seconds=int(seconds_match.group(1))
+        total_seconds=minutes*60+seconds
+        if total_seconds > 0:
+            command.reply_text=f"{minutes}分{seconds}秒のタイマーをセットしました。"
+            self.add_notification(f"{minutes}分{seconds}秒のタイマーが終了しました。",timestamp=time.time()+total_seconds)
+        else:
+            if self.is_plugin_mode==False:
+                command.reply_text="タイマーの時間を教えて下さい"
+                self.is_plugin_mode=True
+            else:
+                self.is_plugin_mode=False
+        return super().execute(command)
