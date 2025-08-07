@@ -62,8 +62,8 @@ class VoiceRecognizer:
                 break
 class VoiceControl(VoiceRecognizer):
     def __init__(self,custom_devices,custom_routines,control,config):
-        self.words=["教","何","ですか","なに","とは","について","ますか","して","開いて","送","する","どこ","いつ","なんで","なぜ","どうして","調"]
-        self.words.extend(["teach", "what", "is", "about", "how", "tell", "show", "open", "send", "do", "make", "explain", "help", "please", "can", "you", "me", "this", "that", "create", "give","where","when","why","how"]) # 英語対応用
+        self.words=["教","何","ですか","なに","とは","について","ますか","して","開いて","送","する","どこ","いつ","なんで","なぜ","どうして","調","通知","お知らせ"]
+        self.words.extend(["teach", "what", "is", "about", "how", "tell", "show", "open", "send", "do", "make", "explain", "help", "please", "can", "you", "me", "this", "that", "create", "give","where","when","why","how","notification","notify"]) # 英語対応用
         self.custom_devices_name=[i["deviceName"] for i in custom_devices["deviceList"]]
         self.words.extend(self.custom_devices_name)
         self.control=control
@@ -77,6 +77,8 @@ class VoiceControl(VoiceRecognizer):
         self.plugins=self.plugin_manager.load_plugins()
         self.custom_routines=custom_routines
         self.routine_list=[routine for routine in self.custom_routines["routineList"]]
+        self.notifications=[]
+        threading.Thread(target=self.watch_notifications,daemon=True).start()
     def judge(self,command):
         text=command.user_input_text
         action=None
@@ -93,6 +95,8 @@ class VoiceControl(VoiceRecognizer):
             action="now_time"
         if "今日" in text and "何日" in text:
             action="now_day"
+        if "通知" in text or "お知らせ" in text or "notification" in text or "notify" in text:
+            action="notification"
         if action==None:
             action="ai"
             entities_replace=[]
@@ -104,6 +108,13 @@ class VoiceControl(VoiceRecognizer):
             response=datetime.datetime.now().strftime("%H時%M分です")
         if action=='now_day':
             response=datetime.datetime.now().strftime("%Y年%m月%d日です")
+        if action=="notification":
+            notification_count=len(self.notifications)
+            if notification_count>0:
+                response="".join([f"{notification.plugin_name}からです{notification.message}" for notification in self.notifications])
+                self.notifications=[]
+            else:
+                response="新しい通知はありません"
         command.reply_text=response
         command.action_type=action
         return command
@@ -175,6 +186,20 @@ class VoiceControl(VoiceRecognizer):
                 for command in routine["commands"]:
                     self.command(command)
                 break
+    def watch_notifications(self):
+        while True:
+            notifications=self.check_notification()
+            if notifications:
+                self.yomiage([VoiceCommand(user_input_text="",action_type="notification",reply_text="新しい通知があります")])
+                self.notifications.extend(notifications)
+            time.sleep(1)
+    def check_notification(self):
+        notifications=[]
+        for plugin in self.plugins:
+            plugin_notifications=plugin.get_active_notifications()
+            notifications.extend(plugin_notifications)
+            plugin.clear_notifications()
+        return notifications
     def yomiage(self,commands):
         for command in commands:
             text=command.reply_text
