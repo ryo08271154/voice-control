@@ -3,6 +3,7 @@ import inspect
 import os
 import json
 from commands import VoiceCommand
+import time
 dir_name=os.path.dirname(os.path.abspath(__file__))
 class PluginManager:
     def __init__(self,plugin_dir:str="plugins"):
@@ -40,7 +41,34 @@ class PluginManager:
                 print(f"プラグインの読み込みにエラーが発生しました: {e}")
         self.plugins=plugins
         return plugins
-class BasePlugin:
+class Notification:
+    def __init__(self, plugin_name: str, message: str, message_type: str = "info", timestamp: float = time.time()):
+        self.plugin_name = plugin_name
+        self.message = message
+        self.message_type = message_type
+        self.timestamp = timestamp
+class NotificationManager:
+    def __init__(self):
+        self.notifications = []
+    def add_notification(self, plugin_name: str, message: str, message_type: str = "info",timestamp: float = time.time()) -> None:
+        self.notifications.append(Notification(plugin_name, message, message_type, timestamp))
+    def get_active_notifications(self) -> list:
+        active_notifications=[]
+        for notification in self.notifications:
+            if notification.timestamp <= time.time():
+                active_notifications.append(notification)
+        return active_notifications
+    def get_all_notifications(self) -> list:
+        return self.notifications
+    def clear_notifications(self) -> None:
+        active_notifications=self.get_active_notifications()
+        for notification in active_notifications:
+            self.notifications.remove(notification)
+    def notify(self, plugin_name: str, message: str,message_type:str="info") -> None:
+        print(f"{plugin_name}:{message}")
+        self.notifications.append(Notification(plugin_name, message,message_type))
+
+class BasePlugin(NotificationManager):
     name:str=""
     description:str=""
     version:str="v1.0.0"
@@ -56,3 +84,10 @@ class BasePlugin:
         return any(keyword in text for keyword in self.keywords)
     def execute(self,command:VoiceCommand) -> VoiceCommand:
         return command
+    def get_plugin_mode(self) -> bool:
+        return self.is_plugin_mode
+    def set_plugin_mode(self, mode: bool) -> None:
+        self.is_plugin_mode = mode
+    def add_notification(self, message: str , message_type = "info", timestamp: float = time.time()):
+        plugin_name=self.name
+        return super().add_notification(plugin_name, message, message_type, timestamp)

@@ -49,8 +49,67 @@ class RSSPlugin(BasePlugin):
             root=ET.fromstring(rss_feed.text)
             items=root.findall(".//item")
             rss_title=root.find("./channel/title")
-            reply_text += f"{rss_title.text} の最新ニュースです "
+            reply_text += f"{rss_title.text} からです "
             for item in items[:5]: #最新5件のニュースを取得
                     reply_text += f"{item.find('title').text} "
         command.reply_text = reply_text
+        return super().execute(command)
+
+import webbrowser
+class SearchPlugin(BasePlugin):
+    name="WebSearch"
+    description="Webで検索する"
+    keywords=["検索", "ウェブ"]
+    def execute(self, command):
+        query=command.user_input_text.replace("検索","").replace("ウェブ","").replace("する","").replace("して","").replace("で","")
+        if not query:
+            if self.is_plugin_mode==False:
+                command.reply_text="検索するキーワードを教えて下さい"
+                self.is_plugin_mode=True
+            else:
+                self.is_plugin_mode=False
+                command.reply_text="検索キーワードが指定されていません。"
+            return super().execute(command)
+        self.is_plugin_mode=False
+        search_url = f"https://www.google.com/search?q={query}"
+        command.reply_text = f"Webで「{query}」を検索します。ブラウザで開きます。"
+        webbrowser.open(search_url,autoraise=True)
+        return super().execute(command)
+class TimerPlugin(BasePlugin):
+    name="Timer"
+    description="タイマーを設定する"
+    keywords=["タイマー"]
+    def execute(self, command):
+        text=command.user_input_text
+        if "消" in text or "けし" in text or "キャンセル" in text or "やめ" in text or "終" in text:
+            command.reply_text="最後のタイマーをキャンセルしました。"
+            self.notifications.pop(-1)
+            return super().execute(command)
+        elif "あと" in text or "残" in text:
+            for notification in self.notifications:
+                notification_time=notification.timestamp
+                remaining_time=notification_time-time.time()
+                command.reply_text+=f"タイマーはあと{int(remaining_time)}秒です。"
+            return super().execute(command)
+        minutes=0
+        seconds=0
+        text=text.replace("一", "1").replace("二", "2").replace("三", "3").replace("四", "4").replace("五", "5").replace("六", "6").replace("七", "7").replace("八", "8").replace("九", "9").replace("十", "10").replace("百", "100")
+        if "分" in text:
+            minutes_match=re.search(r"(\d+)分",text)
+            if minutes_match:
+                minutes=int(minutes_match.group(1))
+        if "秒" in text:
+            seconds_match=re.search(r"(\d+)秒",text)
+            if seconds_match:
+                seconds=int(seconds_match.group(1))
+        total_seconds=minutes*60+seconds
+        if total_seconds > 0:
+            command.reply_text=f"{minutes}分{seconds}秒のタイマーをセットしました。"
+            self.add_notification(f"{minutes}分{seconds}秒のタイマーが終了しました。",timestamp=time.time()+total_seconds)
+        else:
+            if self.is_plugin_mode==False:
+                command.reply_text="タイマーの時間を教えて下さい"
+                self.is_plugin_mode=True
+            else:
+                self.is_plugin_mode=False
         return super().execute(command)

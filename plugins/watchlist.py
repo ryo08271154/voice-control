@@ -115,7 +115,7 @@ from plugin import BasePlugin
 class WatchListPlugin(BasePlugin):
     name="watchlist"
     description="視聴記録(https://github.com/ryo08271154/watchlist)専用のプラグイン"
-    keywords=["視聴記録","リスト","見た","見てる","見る","視聴","いつ"]
+    keywords=["視聴記録","リスト","見た","見てる","見る","視聴"]
     required_config=["server_url","username","password"]
     session=WatchList()
     def execute(self, command):

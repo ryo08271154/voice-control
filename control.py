@@ -12,7 +12,7 @@ voice=None
 l=None
 chromecasts, browser = pychromecast.get_chromecasts()
 def main(page:flet.Page):
-    def listen():
+    def voice_control_setup():
         try:
             import json
             dir_name=os.path.dirname(__file__)
@@ -23,10 +23,13 @@ def main(page:flet.Page):
             config=json.load(open(os.path.join(dir_name,"config","config.json")))
             c=voice_control.Control(custom_devices,custom_scenes)
             voice=VoiceControl(c.custom_devices,custom_routines,c,config)
-            voice.words.extend(["教","何","ですか","なに","とは","について","ますか","して","開いて"])
-            def run(config):
+            def listen(config):
                 voice.always_on_voice(config["vosk"]["model_path"])
-            run(config)
+            if not l:
+                l=threading.Thread(target=listen,args=(config,),daemon=True)
+                l.start()
+            else:
+                return page.window.destroy()
         except Exception as e:
             print(f"音声認識の初期化中にエラーが発生しました: {e}")
     def menu(e):
@@ -324,6 +327,11 @@ def main(page:flet.Page):
                     break
         except:
             pass
+    def notifications_list_panel():
+        lv=flet.ListView(spacing=10,padding=20)
+        for notification in voice.notifications:
+            lv.controls.append(flet.Container(content=flet.Text(f"{notification.plugin_name} - {notification.message}"),bgcolor=flet.Colors.WHITE10,padding=10,border_radius=5))
+        return lv
     def route(e):
         page.views.clear()
 
@@ -340,12 +348,19 @@ def main(page:flet.Page):
 
                                 ],scroll=flet.ScrollMode.HIDDEN))
         if page.route=="/menu":
+            input_field=flet.TextField(label="音声コマンドを入力", on_submit=lambda e: command(e.control.value),expand=True,text_align=flet.TextAlign.CENTER,text_size=20)
             page.views.append(flet.View("/menu",[
                 flet.ElevatedButton("ホーム",on_click=lambda e:page.go("/")),
                 flet.ElevatedButton("デバイス一覧", on_click=lambda e: page.go("/devices")),
-                flet.ElevatedButton("メディア操作", on_click=lambda e: page.go("/media")), # メディア操作ボタンを追加
+                flet.ElevatedButton("メディア操作", on_click=lambda e: page.go("/media")),
+                flet.ElevatedButton("通知", on_click=lambda e: page.go("/notifications")),
                 flet.ElevatedButton("ヘルプ", on_click=lambda e: page.go("/help")),
                 flet.ElevatedButton("設定", on_click=lambda e: page.go("/settings")),
+                flet.Container(content=flet.Row(
+                    controls=[
+                        input_field,
+                        flet.IconButton(icon=flet.Icons.SEND,on_click=lambda e: command(input_field.value))
+                    ])),
                 menu_list(),
             ],scroll=flet.ScrollMode.HIDDEN))
         if page.route=="/device_control":
@@ -385,10 +400,10 @@ def main(page:flet.Page):
                         flet.ElevatedButton("ホーム", on_click=lambda e: page.go("/")),
                         flet.Text("設定", size=30, weight=flet.FontWeight.BOLD),
                         flet.Switch(label="フルスクリーンモード", value=page.window.full_screen, on_change=voice_screen),
+                        flet.Switch(label="ミュート", value=voice.mute, on_change=lambda e: setattr(voice, 'mute', e.control.value)),
                     ],
                 )
             )
-        # メディア操作画面を追加
         if page.route == "/media":
             nowtime.size=20
             page.views.append(
@@ -462,15 +477,21 @@ def main(page:flet.Page):
                 scroll=None
             )
             )
+        if page.route=="/notifications":
+            page.views.append(
+                flet.View(
+                    "/notifications",
+                    [
+                        flet.ElevatedButton("ホーム", on_click=lambda e: page.go("/")),
+                        flet.Text("通知", size=30, weight=flet.FontWeight.BOLD),
+                        notifications_list_panel()
+                    ]
+                    )
+                )
 
-        # page.scroll=flet.ScrollMode.ALWAYS
         page.update()
-    global l
-    if not l:
-        l=threading.Thread(target=listen,daemon=True)
-        l.start()
-    else:
-        return page.window.destroy()
+
+    voice_control_setup()
     while not voice:
         time.sleep(1)
     # イベントハンドラの登録
