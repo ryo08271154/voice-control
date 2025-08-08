@@ -56,24 +56,81 @@ class RSSPlugin(BasePlugin):
         return super().execute(command)
 
 import webbrowser
+import urllib.parse
 class SearchPlugin(BasePlugin):
     name="WebSearch"
     description="Webで検索する"
-    keywords=["検索", "ウェブ"]
+    keywords=["検索", "ウェブ","開"]
     def execute(self, command):
-        query=command.user_input_text.replace("検索","").replace("ウェブ","").replace("する","").replace("して","").replace("で","")
-        if not query:
-            if self.is_plugin_mode==False:
-                command.reply_text="検索するキーワードを教えて下さい"
-                self.is_plugin_mode=True
-            else:
-                self.is_plugin_mode=False
-                command.reply_text="検索キーワードが指定されていません。"
+        text=command.user_input_text
+        query=text.replace("検索","").replace("ウェブ","").replace("する","").replace("して","").replace("で","").replace("を","").replace("グーグル","").replace("Google","").replace("ユーチューブ","").replace("ティックトック","").replace("ツイッター","").replace("ウィキペディア","").replace("アマゾン","").replace("スポティファイ","").replace("マップ","").replace("地図","").replace("YouTube","").replace("TikTok","").replace("Twitter","").replace("Wikipedia","").replace("Amazon","").replace("Spotify","")
+        search_url=None
+        service_name=None
+        if "YouTube" in text or "ユーチューブ" in text:
+            search_url=f"https://www.youtube.com/results?search_query={query}"
+            service_name="YouTube"
+        elif "TikTok" in text or "ティックトック" in text:
+            search_url=f"https://www.tiktok.com/search?q={query}"
+            service_name="TikTok"
+        elif "Twitter" in text or "ツイッター" in text:
+            search_url=f"https://x.com/search?q={query}"
+            service_name="Twitter"
+        elif "Wikipedia" in text or "ウィキペディア" in text:
+            search_url=f"https://ja.wikipedia.org/wiki/{query}"
+            service_name="Wikipedia"
+        elif "Amazon" in text or "アマゾン" in text:
+            search_url=f"https://www.amazon.co.jp/s?k={query}"
+            service_name="Amazon"
+        elif "Spotify" in text or "スポティファイ" in text:
+            search_url=f"https://open.spotify.com/search/{query}"
+            service_name="Spotify"
+        elif "マップ" in text or "地図" in text:
+            search_url=f"https://www.google.com/maps/search/{query}"
+            service_name="Google Maps"
+        elif "Google" in text or "グーグル" in text:
+            search_url=f"https://www.google.com/search?q={query}"
+            service_name="Google"
+        if ("開" in text or "ひら" in text):
+            if search_url and service_name:
+                url=urllib.parse.urlparse(search_url)
+                webbrowser.open(f"{url.scheme}://{url.netloc}",autoraise=True)
+                command.reply_text = f"{service_name}を開きます。"
+            self.is_plugin_mode=False
             return super().execute(command)
-        self.is_plugin_mode=False
-        search_url = f"https://www.google.com/search?q={query}"
-        command.reply_text = f"Webで「{query}」を検索します。ブラウザで開きます。"
-        webbrowser.open(search_url,autoraise=True)
+        else:
+            if not query:
+                if self.is_plugin_mode==False:
+                    command.reply_text="検索するキーワードを教えて下さい"
+                    self.is_plugin_mode=True
+                else:
+                    self.is_plugin_mode=False
+                    command.reply_text="検索キーワードが指定されていません。"
+                return super().execute(command)
+            if search_url is None and service_name is None:
+                search_url=f"https://www.google.com/search?q={query}"
+                service_name="Google"
+            command.reply_text = f"{service_name}で「{query}」を検索します。"
+            webbrowser.open(search_url,autoraise=True)
+            self.is_plugin_mode=False
+        return super().execute(command)
+import subprocess
+class AppLauncherPlugin(BasePlugin):
+    name="AppLauncher"
+    description="アプリを起動する"
+    keywords=["起動", "開", "アプリ"]
+    required_config=["apps"]
+    def execute(self, command):
+        config=self.get_config()
+        apps=config.get("apps").split(",")
+        text=command.user_input_text
+        for app in apps:
+            app_config=app.split(":")
+            app_name=app_config[0]
+            cmd=app_config[1]
+            if app_name in text:
+                subprocess.Popen(cmd,shell=True)
+                command.reply_text=f"{app_name}を起動します。"
+                return super().execute(command)
         return super().execute(command)
 class TimerPlugin(BasePlugin):
     name="Timer"
