@@ -1,11 +1,36 @@
 from plugin import BasePlugin
 import datetime
 import requests
+import schedule
+import time
+import threading
+from commands import VoiceCommand
 class WeatherPlugin(BasePlugin):
     name="Weather"
     description="OpenWeatherMapのAPIを使用して天気を取得する"
     keywords=["天気", "予報", "晴れ", "雨", "くもり", "雪"]
     required_config=["openweathermap_apikey", "latitude", "longitude"]
+    def __init__(self):
+        super().__init__()
+        threading.Thread(target=self.run_pending_jobs,daemon=True).start()
+        schedule.every().day.at("08:00").do(self.weather_notification)
+    def run_pending_jobs(self):
+        while True:
+            schedule.run_pending()
+            time.sleep(1)
+    def weather_notification(self):
+        message=None
+        command=self.execute(VoiceCommand("今日の天気"))
+        if "大雨" in command.reply_text:
+            message="今日は大雨が予想されています。外出時は傘を持って出かけて十分に注意してください。"
+        elif "雨" in command.reply_text:
+            message="今日は雨が降る可能性があります。外出時は傘を持って出かけてください。"
+        elif "雷" in command.reply_text:
+            message="今日は雷雨の可能性があります。外出時は注意してください。"
+        elif "雪" in command.reply_text:
+            message="今日は雪が降る可能性があります。外出時は暖かい服装で出かけてください。"
+        if message:
+            self.add_notification(message)
     def get_date(self,text):
         if "今日" in text:
             date=datetime.datetime.now()
@@ -28,17 +53,17 @@ class WeatherPlugin(BasePlugin):
             tenki="天気情報を取得するためのAPIキーまたは位置情報が設定されていません。"
         elif not date:
             tenki="いつの天気を教えてほしいかわかりませんでした"
-        elif datetime.datetime.now().day==date.day:
-            weather_json=requests.get(f"https://api.openweathermap.org/data/2.5/weather?lat={latitude}&lon={longitude}&lang=ja&units=metric&appid={openweathermap_apikey}").json()
-            tenki=f"現在の気温は{weather_json['main']['temp']}℃ 天気は{weather_json['weather'][0]['description']}です"
         else:
             weather_json=requests.get(f"https://api.openweathermap.org/data/2.5/forecast?lat={latitude}&lon={longitude}&lang=ja&units=metric&appid={openweathermap_apikey}").json()
-            get_date=datetime.datetime.strftime(date,"%Y-%m-%d")
             for i in range(1,len(weather_json["list"])):
-                if weather_json["list"][i]["dt_txt"]==f"{get_date} 09:00:00":
-                    tenki=f'{date.day}日の９時の気温は{weather_json["list"][i]["main"]["temp"]}℃ 天気は{weather_json["list"][i]["weather"][0]["description"]} '
-                    tenki+=f'１２時の気温は{weather_json["list"][i+1]["main"]["temp"]}℃ 天気は{weather_json["list"][i+1]["weather"][0]["description"]} '
-                    tenki+=f'１５時の気温は{weather_json["list"][i+2]["main"]["temp"]}℃ 天気は{weather_json["list"][i+2]["weather"][0]["description"]}でしょう'
+                dt_txt=datetime.datetime.strptime(weather_json["list"][i]["dt_txt"],"%Y-%m-%d %H:%M:%S")
+                if dt_txt.day==date.day:
+                    if tenki=="":
+                        tenki=f'{date.day}日の{dt_txt.hour}時は{weather_json["list"][i]["main"]["temp"]}℃ {weather_json["list"][i]["weather"][0]["description"]} '
+                    else:
+                        tenki+=f'{dt_txt.hour}時は{weather_json["list"][i+1]["main"]["temp"]}℃ {weather_json["list"][i+1]["weather"][0]["description"]} '
+                elif dt_txt.day>date.day:
+                    tenki+="でしょう"
                     break
             else:
                 tenki="天気情報が見つかりませんでした"

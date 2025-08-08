@@ -32,9 +32,11 @@ class PluginManager:
                 if filename.endswith(".py") and filename != "__init__.py":
                     module_name = f"plugins.{filename[:-3]}"
                     module = importlib.import_module(module_name)
-                    for name, obj in inspect.getmembers(module, inspect.isclass):
-                        if issubclass(obj,BasePlugin) and obj != BasePlugin and any(obj().name==name for name in enabled_plugins):
-                            plugins.append(obj())
+                    for name, cls in inspect.getmembers(module, inspect.isclass):
+                        if issubclass(cls,BasePlugin) and cls != BasePlugin:
+                            obj=cls()
+                            if obj.name in enabled_plugins:
+                                plugins.append(obj)
             except OSError as e:
                 print(f"プラグインファイルの読み込み中にエラーが発生しました: {e}")
             except Exception as e:
