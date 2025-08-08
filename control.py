@@ -334,7 +334,12 @@ def main(page:flet.Page):
         return lv
     def route(e):
         page.views.clear()
-
+        input_field=flet.TextField(label="音声コマンドを入力", on_submit=lambda e: command(input_field.value),expand=True,text_align=flet.TextAlign.CENTER,text_size=20)
+        text_container=flet.Container(content=flet.Row(
+            controls=[
+                input_field,
+                flet.IconButton(icon=flet.Icons.SEND,on_click=lambda e: command(input_field.value))
+            ]))
         if page.route=="/":
             reply.value=""
             nowtime.size=100
@@ -342,13 +347,20 @@ def main(page:flet.Page):
                                             flet.Container(content=nowtime,expand=True,alignment=flet.alignment.center,on_click=menu)
                                             ],))
         if page.route=="/voice":
-            page.views.append(flet.View("/voice",[flet.ElevatedButton("ホーム", on_click=lambda e:page.go("/")),
-                                                  flet.Container(content=talk_text, expand=True, alignment=flet.alignment.center),
-                                                  flet.Container(content=reply,expand=True,alignment=flet.alignment.center)
-
-                                ],scroll=flet.ScrollMode.HIDDEN))
+            page.views.append(flet.View("/voice",[
+                flet.Column(
+                    controls=[
+                    flet.ElevatedButton("ホーム", on_click=lambda e:page.go("/")),
+                    flet.Container(content=talk_text, expand=True, alignment=flet.alignment.center),
+                    flet.Container(content=reply,expand=True,alignment=flet.alignment.center),
+                    ],
+                scroll=flet.ScrollMode.HIDDEN,
+                expand=True
+                ),
+                text_container
+            ],
+            ))
         if page.route=="/menu":
-            input_field=flet.TextField(label="音声コマンドを入力", on_submit=lambda e: command(e.control.value),expand=True,text_align=flet.TextAlign.CENTER,text_size=20)
             page.views.append(flet.View("/menu",[
                 flet.ElevatedButton("ホーム",on_click=lambda e:page.go("/")),
                 flet.ElevatedButton("デバイス一覧", on_click=lambda e: page.go("/devices")),
@@ -356,13 +368,10 @@ def main(page:flet.Page):
                 flet.ElevatedButton("通知", on_click=lambda e: page.go("/notifications")),
                 flet.ElevatedButton("ヘルプ", on_click=lambda e: page.go("/help")),
                 flet.ElevatedButton("設定", on_click=lambda e: page.go("/settings")),
-                flet.Container(content=flet.Row(
-                    controls=[
-                        input_field,
-                        flet.IconButton(icon=flet.Icons.SEND,on_click=lambda e: command(input_field.value))
-                    ])),
+                text_container,
                 menu_list(),
-            ],scroll=flet.ScrollMode.HIDDEN))
+                ],
+                                        scroll=flet.ScrollMode.HIDDEN))
         if page.route=="/device_control":
             icon,color,device_name,action=control()
             page.views.append(flet.View("/device_control",[flet.ElevatedButton("ホーム",on_click=lambda e:page.go("/")),
