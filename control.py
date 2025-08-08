@@ -173,7 +173,10 @@ def main(page:flet.Page):
                 page.go("/device_control")
                 break
         else:
-            page.go("/voice")
+            if v.action_type=="notification":
+                page.go("/notifications")
+            else:
+                page.go("/voice")
     def voice_screen(e):
         if page.window.full_screen==False:
             page.window.full_screen=True
