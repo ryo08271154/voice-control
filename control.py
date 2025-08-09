@@ -332,6 +332,8 @@ def main(page:flet.Page):
         except:
             pass
     def notifications_list_panel():
+        if len(voice.notifications)==0:
+            return flet.Container(content=flet.Column(controls=[flet.Icon(flet.Icons.NOTIFICATIONS_OFF,size=100),flet.Text("新しい通知はありません",size=30,text_align=flet.TextAlign.CENTER)],alignment=flet.MainAxisAlignment.CENTER,expand=True,horizontal_alignment=flet.CrossAxisAlignment.CENTER),alignment=flet.alignment.center,expand=True)
         lv=flet.ListView(spacing=10,padding=20,expand=True)
         for notification in voice.notifications:
             lv.controls.append(flet.Container(content=flet.Text(f"{notification.plugin_name} - {notification.message}"),bgcolor=flet.Colors.WHITE10,padding=10,border_radius=5))
@@ -364,18 +366,45 @@ def main(page:flet.Page):
                 text_container
             ],
             ))
-        if page.route=="/menu":
-            page.views.append(flet.View("/menu",[
-                flet.ElevatedButton("ホーム",on_click=lambda e:page.go("/")),
-                flet.ElevatedButton("デバイス一覧", on_click=lambda e: page.go("/devices")),
-                flet.ElevatedButton("メディア操作", on_click=lambda e: page.go("/media")),
-                flet.ElevatedButton("通知", on_click=lambda e: page.go("/notifications")),
-                flet.ElevatedButton("ヘルプ", on_click=lambda e: page.go("/help")),
-                flet.ElevatedButton("設定", on_click=lambda e: page.go("/settings")),
+        if page.route == "/menu":
+            menu_items = [
+                ("デバイス一覧", "/devices", flet.Icons.DEVICES_OTHER_OUTLINED),
+                ("メディア操作", "/media", flet.Icons.PLAY_CIRCLE_OUTLINE),
+                ("通知", "/notifications", flet.Icons.NOTIFICATIONS_OUTLINED),
+                ("ヘルプ", "/help", flet.Icons.HELP_OUTLINE),
+                ("設定", "/settings", flet.Icons.SETTINGS_OUTLINED),
+            ]
+
+            menu_grid = flet.GridView(
+                expand=True,
+                runs_count=3,
+                max_extent=180,
+                child_aspect_ratio=1.1,
+                spacing=10,
+                run_spacing=10,
+                controls=[
+                    flet.Card(
+                        content=flet.Container(
+                            content=flet.Column(
+                                [flet.Icon(icon, size=40), flet.Text(text, size=16, text_align=flet.TextAlign.CENTER)],
+                                alignment=flet.MainAxisAlignment.CENTER,
+                                horizontal_alignment=flet.CrossAxisAlignment.CENTER,
+                                spacing=10,
+                            ),
+                            on_click=lambda _, r=route: page.go(r),
+                            padding=15, border_radius=flet.border_radius.all(10)
+                        )
+                    ) for text, route, icon in menu_items
+                ]
+            )
+            page.views.append(flet.View("/menu", [
+                flet.ElevatedButton("ホームに戻る", on_click=lambda e: page.go("/")),
+                flet.Text("メニュー", size=30, weight=flet.FontWeight.BOLD),
+                menu_grid,
                 text_container,
+                flet.Text("カスタムルーチン", size=24, weight=flet.FontWeight.BOLD),
                 menu_list(),
-                ],
-                                        scroll=flet.ScrollMode.HIDDEN))
+            ], scroll=flet.ScrollMode.AUTO, padding=20))
         if page.route=="/device_control":
             icon,color,device_name,action=control()
             page.views.append(flet.View("/device_control",[flet.ElevatedButton("ホーム",on_click=lambda e:page.go("/")),
@@ -485,8 +514,8 @@ def main(page:flet.Page):
                         expand=True
                     )
                 ],
-                vertical_alignment=flet.MainAxisAlignment.START,
-                horizontal_alignment=flet.CrossAxisAlignment.CENTER,
+                # vertical_alignment=flet.MainAxisAlignment.START,
+                # horizontal_alignment=flet.CrossAxisAlignment.CENTER,
                 scroll=None
             )
             )
