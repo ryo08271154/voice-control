@@ -9,7 +9,7 @@ import time
 import pychromecast
 import lyricsgenius
 import locale
-locale.setlocale(locale.LC_TIME, "ja_JP")
+locale.setlocale(locale.LC_TIME, "")
 voice=None
 l=None
 chromecasts, browser = pychromecast.get_chromecasts()
