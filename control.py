@@ -8,6 +8,8 @@ import random
 import time
 import pychromecast
 import lyricsgenius
+import locale
+locale.setlocale(locale.LC_TIME, "ja_JP")
 voice=None
 l=None
 chromecasts, browser = pychromecast.get_chromecasts()
@@ -36,13 +38,15 @@ def main(page:flet.Page):
         page.go("/menu")
     page.theme_mode=flet.ThemeMode.DARK
     page.title="音声操作"
-    nowtime = flet.Text(datetime.datetime.now().strftime("%Y/%m/%d\n%H:%M:%S"), size=100, text_align=flet.TextAlign.CENTER)
+    current_datetime_text = flet.Text(datetime.datetime.now().strftime("%Y/%m/%d(%a)\n%H:%M:%S"), size=100, text_align=flet.TextAlign.CENTER)
+    current_time_text= flet.Text(datetime.datetime.now().strftime("%Y/%m/%d\n%H:%M:%S"), size=20, text_align=flet.TextAlign.CENTER)
     talk_text=flet.Text("",size=50)
     reply=flet.Text("", size=100,text_align=flet.TextAlign.CENTER,expand=True)
     async def update_time():
         while True:
-            nowtime.value =datetime.datetime.now().strftime("%Y/%m/%d\n%H:%M:%S")
-            if page.route=="/":
+            current_datetime_text.value =datetime.datetime.now().strftime("%Y/%m/%d(%a)\n%H:%M:%S")
+            current_time_text.value =datetime.datetime.now().strftime("%H:%M:%S")
+            if page.route=="/" or page.route=="/menu" or page.route=="/voice":
                 page.update()
             await asyncio.sleep(1)
 
@@ -117,7 +121,7 @@ def main(page:flet.Page):
             await asyncio.sleep(1)
     def get_lyrics():
         global lyrics_text_list
-        if playing_artist and playing_title:
+        if playing_artist and playing_title and "YouTube" not in playing_artist and "YouTube" not in playing_title:
             try:
                 token=voice.config.get("genius",{}).get("token")
                 genius=lyricsgenius.Genius(token)
@@ -348,15 +352,15 @@ def main(page:flet.Page):
             ]))
         if page.route=="/":
             reply.value=""
-            nowtime.size=100
             page.views.append(flet.View("/",[
-                                            flet.Container(content=nowtime,expand=True,alignment=flet.alignment.center,on_click=menu)
+                                            flet.Container(content=current_datetime_text,expand=True,alignment=flet.alignment.center,on_click=menu)
                                             ],))
         if page.route=="/voice":
             page.views.append(flet.View("/voice",[
                 flet.Column(
                     controls=[
                     flet.ElevatedButton("ホーム", on_click=lambda e:page.go("/")),
+                    flet.Container(content=current_time_text, expand=True, alignment=flet.alignment.center),
                     flet.Container(content=talk_text, expand=True, alignment=flet.alignment.center),
                     flet.Container(content=reply,expand=True,alignment=flet.alignment.center),
                     ],
@@ -398,7 +402,8 @@ def main(page:flet.Page):
                 ]
             )
             page.views.append(flet.View("/menu", [
-                flet.ElevatedButton("ホームに戻る", on_click=lambda e: page.go("/")),
+                flet.ElevatedButton("ホーム", on_click=lambda e: page.go("/")),
+                flet.Container(content=current_time_text, expand=True, alignment=flet.alignment.center),
                 flet.Text("メニュー", size=30, weight=flet.FontWeight.BOLD),
                 menu_grid,
                 text_container,
@@ -447,19 +452,18 @@ def main(page:flet.Page):
                 )
             )
         if page.route == "/media":
-            nowtime.size=20
             page.views.append(
             flet.View(
                 "/media",
                 [
                     flet.ElevatedButton("ホーム", on_click=lambda e: page.go("/")),
-                    nowtime,
                     flet.Stack(
                         controls=[
                             # 上中央に固定する部分
                             flet.Container(
                                 content=flet.Column(
                                     [
+                                        current_time_text,
                                         media_icon,
                                         media_info_text,
                                         flet.Container(height=120),
@@ -475,7 +479,7 @@ def main(page:flet.Page):
                             flet.Container(
                                 content=flet.Column(
                                     [
-                                        flet.Container(height=200),  # 上のアイコン表示分のスペースを空ける
+                                        flet.Container(height=230),  # 上のアイコン表示分のスペースを空ける
                                         flet.Container(
                                             content=lyrics_text_list,
                                             expand=True,
@@ -514,8 +518,6 @@ def main(page:flet.Page):
                         expand=True
                     )
                 ],
-                # vertical_alignment=flet.MainAxisAlignment.START,
-                # horizontal_alignment=flet.CrossAxisAlignment.CENTER,
                 scroll=None
             )
             )
