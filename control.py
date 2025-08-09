@@ -49,10 +49,11 @@ def main(page:flet.Page):
     async def back(seconds=30):
         try:
             await asyncio.sleep(seconds)
-            if current_time>0:
-                page.go("/media")
-            else:
-                page.go("/")
+            if page.route=="/voice" or page.route=="/notifications" or page.route=="device_control":
+                if current_time>0:
+                    page.go("/media")
+                else:
+                    page.go("/")
         except asyncio.CancelledError:
             pass
     def get_chromecast_status():
@@ -189,7 +190,7 @@ def main(page:flet.Page):
         color=""
         device_name=["不明なデバイス"]
         action=""
-        if "ライト" in voice.reply:
+        if "ライト" in voice.reply or "電気" in voice.reply:
             icon=flet.Icons.LIGHTBULB
             device_name=["ライト"]
         elif "テレビ" in voice.reply:
@@ -331,7 +332,7 @@ def main(page:flet.Page):
         except:
             pass
     def notifications_list_panel():
-        lv=flet.ListView(spacing=10,padding=20)
+        lv=flet.ListView(spacing=10,padding=20,expand=True)
         for notification in voice.notifications:
             lv.controls.append(flet.Container(content=flet.Text(f"{notification.plugin_name} - {notification.message}"),bgcolor=flet.Colors.WHITE10,padding=10,border_radius=5))
         return lv
@@ -378,7 +379,7 @@ def main(page:flet.Page):
         if page.route=="/device_control":
             icon,color,device_name,action=control()
             page.views.append(flet.View("/device_control",[flet.ElevatedButton("ホーム",on_click=lambda e:page.go("/")),
-                flet.Container(content=flet.IconButton(icon,icon_size=100,on_click=lambda e:device_control(device_name,action),icon_color=color,expand=True,alignment=flet.alignment.center),alignment=flet.alignment.center),
+                flet.Container(content=flet.IconButton(icon,icon_size=100,on_click=lambda e:device_control(device_name,action),icon_color=color,expand=True,alignment=flet.alignment.center),alignment=flet.alignment.center,expand=True),
             ]))
         if page.route == "/devices":
             page.views.append(
