@@ -45,24 +45,24 @@ class VoiceRecognizer:
                 is_speech = vad.is_speech(data,sample_rate)
                 if is_speech:
                     end_of_speech = False
+                    print("聞き取り中",end="\r")
                     speech_end_time = time.time() + 3  # 3秒無音で終了とみなす
                 elif not is_speech and time.time() > speech_end_time:
                     end_of_speech = True
-                    print("\r"+"音声待機中",end="")
-                if end_of_speech==False:
-                    print("\r"+"聞き取り中",end="")
+                    print("音声待機中",end="\r")
+                if end_of_speech==False and self.mute==False:
                     if recognizer.AcceptWaveform(data):
-                        if self.mute==False:
-                            self.text=json.loads(recognizer.Result())["text"]
-                            if self.text!="":
-                                print("\r"+"ユーザー:",self.text)
-                                end_of_speech = True
-                                threading.Thread(target=self.command,args=(self.text,)).start()
+                        self.text=json.loads(recognizer.Result())["text"]
+                        if self.text!="":
+                            print("ユーザー:",self.text)
+                            end_of_speech = True
+                            threading.Thread(target=self.command,args=(self.text,)).start()
             except KeyboardInterrupt:
                 break
 class VoiceControl(VoiceRecognizer):
     def __init__(self,custom_devices,custom_routines,control,config):
-        self.words=[]
+        self.words=["教","何","ですか","なに","とは","について","ますか","して","開いて","送","する","どこ","いつ","なんで","なぜ","どうして","調","通知","お知らせ"]
+        self.words.extend(["teach", "what", "is", "about", "how", "tell", "show", "open", "send", "do", "make", "explain", "help", "please", "can", "you", "me", "this", "that", "create", "give","where","when","why","how","notification","notify"]) # 英語対応用
         self.custom_devices_name=[i["deviceName"] for i in custom_devices["deviceList"]]
         self.words.extend(self.custom_devices_name)
         self.control=control
@@ -76,6 +76,8 @@ class VoiceControl(VoiceRecognizer):
         self.plugins=self.plugin_manager.load_plugins()
         self.custom_routines=custom_routines
         self.routine_list=[routine for routine in self.custom_routines["routineList"]]
+        self.notifications=[]
+        threading.Thread(target=self.watch_notifications,daemon=True).start()
     def judge(self,command):
         text=command.user_input_text
         action=None
@@ -88,17 +90,14 @@ class VoiceControl(VoiceRecognizer):
             device_name=[ i for i in self.custom_devices_name if i in text]
             if device_name:
                 action="turnOff"
-        if "教え" in text or "ついて" in text or "何" in text or "なに" in text or "して" in text or "開いて" in text:
-            num=re.sub(r"\D","",text)
-            if num=="":
-                entities_replace=[]
-                action="ai"
-        if ("今" in text or "現在" in text or "何" in text or "なん" in text) and ("時" in text) and not "天気" in text:
+        if ("今" in text or "現在" in text) and ("時" in text) and not "天気" in text:
             action="now_time"
-        if ("今" in text or "現在" in text or "何" in text or "なん" in text) and ("年" in text or "月" in text or"日" in text) and not "天気" in text:
+        if "今日" in text and "何日" in text:
             action="now_day"
-        if action==None: #判別できなかったとき
-            action=="ai"
+        if "通知" in text or "お知らせ" in text or "notification" in text or "notify" in text:
+            action="notification"
+        if action==None:
+            action="ai"
             entities_replace=[]
         if action in ['turnOn','turnOff']:
             response+=self.control.custom_device_control(device_name,action)
@@ -108,6 +107,13 @@ class VoiceControl(VoiceRecognizer):
             response=datetime.datetime.now().strftime("%H時%M分です")
         if action=='now_day':
             response=datetime.datetime.now().strftime("%Y年%m月%d日です")
+        if action=="notification":
+            notification_count=len(self.notifications)
+            if notification_count>0:
+                response="".join([f"{notification.plugin_name}からです{notification.message}" for notification in self.notifications])
+                threading.Thread(target=self.clear_notifications).start()
+            else:
+                response="新しい通知はありません"
         command.reply_text=response
         command.action_type=action
         return command
@@ -179,10 +185,34 @@ class VoiceControl(VoiceRecognizer):
                 for command in routine["commands"]:
                     self.command(command)
                 break
+    def watch_notifications(self):
+        while True:
+            notifications=self.check_notification()
+            if notifications:
+                commands=[VoiceCommand(user_input_text="",action_type="notification",reply_text=f"新しい通知があります")]
+                commands.extend([VoiceCommand(user_input_text="",action_type="notification",reply_text=f"{notification.message}") for notification in notifications])
+                self.yomiage(commands)
+            time.sleep(1)
+    def check_notification(self):
+        notifications=[]
+        add_notifications=[]
+        for plugin in self.plugins:
+            plugin_notifications=plugin.get_active_notifications()
+            for notification in plugin_notifications:
+                notifications.append(notification)
+                if notification not in self.notifications:
+                    add_notifications.append(notification)
+        self.notifications=notifications
+        return add_notifications
+    def clear_notifications(self):
+        for plugin in self.plugins:
+            plugin.clear_notifications()
+        time.sleep(5)
+        self.notifications=[]
     def yomiage(self,commands):
         for command in commands:
             text=command.reply_text
-            print("\r"+text)
+            print(text)
             action=command.action_type
             self.mute=True
             try:
@@ -226,7 +256,6 @@ def run():
     config=json.load(open(os.path.join(dir_name,"config","config.json")))
     c=Control(custom_devices,custom_scenes)
     voice=VoiceControl(c.custom_devices,custom_routines,c,config)
-    voice.words.extend(["教","何","ですか","なに","とは","について","ますか","して","開いて"])
     voice.always_on_voice(config["vosk"]["model_path"])
 if __name__=="__main__":
     run()

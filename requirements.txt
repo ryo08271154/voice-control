@@ -11,3 +11,4 @@ vosk
 lyricsgenius
 beautifulsoup4
 fastmcp
+schedule

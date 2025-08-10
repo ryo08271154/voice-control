@@ -8,11 +8,13 @@ import random
 import time
 import pychromecast
 import lyricsgenius
+import locale
+locale.setlocale(locale.LC_TIME, "")
 voice=None
 l=None
 chromecasts, browser = pychromecast.get_chromecasts()
 def main(page:flet.Page):
-    def listen():
+    def voice_control_setup():
         try:
             import json
             dir_name=os.path.dirname(__file__)
@@ -23,33 +25,39 @@ def main(page:flet.Page):
             config=json.load(open(os.path.join(dir_name,"config","config.json")))
             c=voice_control.Control(custom_devices,custom_scenes)
             voice=VoiceControl(c.custom_devices,custom_routines,c,config)
-            voice.words.extend(["教","何","ですか","なに","とは","について","ますか","して","開いて"])
-            def run(config):
+            def listen(config):
                 voice.always_on_voice(config["vosk"]["model_path"])
-            run(config)
+            if not l:
+                l=threading.Thread(target=listen,args=(config,),daemon=True)
+                l.start()
+            else:
+                return page.window.destroy()
         except Exception as e:
             print(f"音声認識の初期化中にエラーが発生しました: {e}")
     def menu(e):
         page.go("/menu")
     page.theme_mode=flet.ThemeMode.DARK
     page.title="音声操作"
-    nowtime = flet.Text(datetime.datetime.now().strftime("%Y/%m/%d\n%H:%M:%S"), size=100, text_align=flet.TextAlign.CENTER)
+    current_datetime_text = flet.Text(datetime.datetime.now().strftime("%Y/%m/%d(%a)\n%H:%M:%S"), size=100, text_align=flet.TextAlign.CENTER)
+    current_time_text= flet.Text(datetime.datetime.now().strftime("%Y/%m/%d\n%H:%M:%S"), size=20, text_align=flet.TextAlign.CENTER)
     talk_text=flet.Text("",size=50)
     reply=flet.Text("", size=100,text_align=flet.TextAlign.CENTER,expand=True)
     async def update_time():
         while True:
-            nowtime.value =datetime.datetime.now().strftime("%Y/%m/%d\n%H:%M:%S")
-            if page.route=="/":
+            current_datetime_text.value =datetime.datetime.now().strftime("%Y/%m/%d(%a)\n%H:%M:%S")
+            current_time_text.value =datetime.datetime.now().strftime("%H:%M:%S")
+            if page.route=="/" or page.route=="/menu" or page.route=="/voice":
                 page.update()
             await asyncio.sleep(1)
 
     async def back(seconds=30):
         try:
             await asyncio.sleep(seconds)
-            if current_time>0:
-                page.go("/media")
-            else:
-                page.go("/")
+            if page.route=="/voice" or page.route=="/notifications" or page.route=="/device_control":
+                if current_time>0:
+                    page.go("/media")
+                else:
+                    page.go("/")
         except asyncio.CancelledError:
             pass
     def get_chromecast_status():
@@ -113,7 +121,7 @@ def main(page:flet.Page):
             await asyncio.sleep(1)
     def get_lyrics():
         global lyrics_text_list
-        if playing_artist and playing_title:
+        if playing_artist and playing_title and "YouTube" not in playing_artist and "YouTube" not in playing_title:
             try:
                 token=voice.config.get("genius",{}).get("token")
                 genius=lyricsgenius.Genius(token)
@@ -170,7 +178,10 @@ def main(page:flet.Page):
                 page.go("/device_control")
                 break
         else:
-            page.go("/voice")
+            if v.action_type=="notification":
+                page.go("/notifications")
+            else:
+                page.go("/voice")
     def voice_screen(e):
         if page.window.full_screen==False:
             page.window.full_screen=True
@@ -183,7 +194,7 @@ def main(page:flet.Page):
         color=""
         device_name=["不明なデバイス"]
         action=""
-        if "ライト" in voice.reply:
+        if "ライト" in voice.reply or "電気" in voice.reply:
             icon=flet.Icons.LIGHTBULB
             device_name=["ライト"]
         elif "テレビ" in voice.reply:
@@ -324,34 +335,85 @@ def main(page:flet.Page):
                     break
         except:
             pass
+    def notifications_list_panel():
+        if len(voice.notifications)==0:
+            return flet.Container(content=flet.Column(controls=[flet.Icon(flet.Icons.NOTIFICATIONS_OFF,size=100),flet.Text("新しい通知はありません",size=30,text_align=flet.TextAlign.CENTER)],alignment=flet.MainAxisAlignment.CENTER,expand=True,horizontal_alignment=flet.CrossAxisAlignment.CENTER),alignment=flet.alignment.center,expand=True)
+        lv=flet.ListView(spacing=10,padding=20,expand=True)
+        for notification in voice.notifications:
+            lv.controls.append(flet.Container(content=flet.Text(f"{notification.plugin_name} - {notification.message}"),bgcolor=flet.Colors.WHITE10,padding=10,border_radius=5))
+        return lv
     def route(e):
         page.views.clear()
-
+        input_field=flet.TextField(label="音声コマンドを入力", on_submit=lambda e: command(input_field.value),expand=True,text_align=flet.TextAlign.CENTER,text_size=20)
+        text_container=flet.Container(content=flet.Row(
+            controls=[
+                input_field,
+                flet.IconButton(icon=flet.Icons.SEND,on_click=lambda e: command(input_field.value))
+            ]))
         if page.route=="/":
             reply.value=""
-            nowtime.size=100
             page.views.append(flet.View("/",[
-                                            flet.Container(content=nowtime,expand=True,alignment=flet.alignment.center,on_click=menu)
+                                            flet.Container(content=current_datetime_text,expand=True,alignment=flet.alignment.center,on_click=menu)
                                             ],))
         if page.route=="/voice":
-            page.views.append(flet.View("/voice",[flet.ElevatedButton("ホーム", on_click=lambda e:page.go("/")),
-                                                  flet.Container(content=talk_text, expand=True, alignment=flet.alignment.center),
-                                                  flet.Container(content=reply,expand=True,alignment=flet.alignment.center)
+            page.views.append(flet.View("/voice",[
+                flet.Column(
+                    controls=[
+                    flet.ElevatedButton("ホーム", on_click=lambda e:page.go("/")),
+                    flet.Container(content=current_time_text, expand=True, alignment=flet.alignment.center),
+                    flet.Container(content=talk_text, expand=True, alignment=flet.alignment.center),
+                    flet.Container(content=reply,expand=True,alignment=flet.alignment.center),
+                    ],
+                scroll=flet.ScrollMode.HIDDEN,
+                expand=True
+                ),
+                text_container
+            ],
+            ))
+        if page.route == "/menu":
+            menu_items = [
+                ("デバイス一覧", "/devices", flet.Icons.DEVICES_OTHER_OUTLINED),
+                ("メディア操作", "/media", flet.Icons.PLAY_CIRCLE_OUTLINE),
+                ("通知", "/notifications", flet.Icons.NOTIFICATIONS_OUTLINED),
+                ("ヘルプ", "/help", flet.Icons.HELP_OUTLINE),
+                ("設定", "/settings", flet.Icons.SETTINGS_OUTLINED),
+            ]
 
-                                ],scroll=flet.ScrollMode.HIDDEN))
-        if page.route=="/menu":
-            page.views.append(flet.View("/menu",[
-                flet.ElevatedButton("ホーム",on_click=lambda e:page.go("/")),
-                flet.ElevatedButton("デバイス一覧", on_click=lambda e: page.go("/devices")),
-                flet.ElevatedButton("メディア操作", on_click=lambda e: page.go("/media")), # メディア操作ボタンを追加
-                flet.ElevatedButton("ヘルプ", on_click=lambda e: page.go("/help")),
-                flet.ElevatedButton("設定", on_click=lambda e: page.go("/settings")),
+            menu_grid = flet.GridView(
+                expand=True,
+                runs_count=3,
+                max_extent=180,
+                child_aspect_ratio=1.1,
+                spacing=10,
+                run_spacing=10,
+                controls=[
+                    flet.Card(
+                        content=flet.Container(
+                            content=flet.Column(
+                                [flet.Icon(icon, size=40), flet.Text(text, size=16, text_align=flet.TextAlign.CENTER)],
+                                alignment=flet.MainAxisAlignment.CENTER,
+                                horizontal_alignment=flet.CrossAxisAlignment.CENTER,
+                                spacing=10,
+                            ),
+                            on_click=lambda _, r=route: page.go(r),
+                            padding=15, border_radius=flet.border_radius.all(10)
+                        )
+                    ) for text, route, icon in menu_items
+                ]
+            )
+            page.views.append(flet.View("/menu", [
+                flet.ElevatedButton("ホーム", on_click=lambda e: page.go("/")),
+                flet.Container(content=current_time_text, expand=True, alignment=flet.alignment.center),
+                flet.Text("メニュー", size=30, weight=flet.FontWeight.BOLD),
+                menu_grid,
+                text_container,
+                flet.Text("カスタムルーチン", size=24, weight=flet.FontWeight.BOLD),
                 menu_list(),
-            ],scroll=flet.ScrollMode.HIDDEN))
+            ], scroll=flet.ScrollMode.AUTO, padding=20))
         if page.route=="/device_control":
             icon,color,device_name,action=control()
             page.views.append(flet.View("/device_control",[flet.ElevatedButton("ホーム",on_click=lambda e:page.go("/")),
-                flet.Container(content=flet.IconButton(icon,icon_size=100,on_click=lambda e:device_control(device_name,action),icon_color=color,expand=True,alignment=flet.alignment.center),alignment=flet.alignment.center),
+                flet.Container(content=flet.IconButton(icon,icon_size=100,on_click=lambda e:device_control(device_name,action),icon_color=color,expand=True,alignment=flet.alignment.center),alignment=flet.alignment.center,expand=True),
             ]))
         if page.route == "/devices":
             page.views.append(
@@ -385,24 +447,23 @@ def main(page:flet.Page):
                         flet.ElevatedButton("ホーム", on_click=lambda e: page.go("/")),
                         flet.Text("設定", size=30, weight=flet.FontWeight.BOLD),
                         flet.Switch(label="フルスクリーンモード", value=page.window.full_screen, on_change=voice_screen),
+                        flet.Switch(label="ミュート", value=voice.mute, on_change=lambda e: setattr(voice, 'mute', e.control.value)),
                     ],
                 )
             )
-        # メディア操作画面を追加
         if page.route == "/media":
-            nowtime.size=20
             page.views.append(
             flet.View(
                 "/media",
                 [
                     flet.ElevatedButton("ホーム", on_click=lambda e: page.go("/")),
-                    nowtime,
                     flet.Stack(
                         controls=[
                             # 上中央に固定する部分
                             flet.Container(
                                 content=flet.Column(
                                     [
+                                        current_time_text,
                                         media_icon,
                                         media_info_text,
                                         flet.Container(height=120),
@@ -418,7 +479,7 @@ def main(page:flet.Page):
                             flet.Container(
                                 content=flet.Column(
                                     [
-                                        flet.Container(height=200),  # 上のアイコン表示分のスペースを空ける
+                                        flet.Container(height=230),  # 上のアイコン表示分のスペースを空ける
                                         flet.Container(
                                             content=lyrics_text_list,
                                             expand=True,
@@ -457,20 +518,24 @@ def main(page:flet.Page):
                         expand=True
                     )
                 ],
-                vertical_alignment=flet.MainAxisAlignment.START,
-                horizontal_alignment=flet.CrossAxisAlignment.CENTER,
                 scroll=None
             )
             )
+        if page.route=="/notifications":
+            page.views.append(
+                flet.View(
+                    "/notifications",
+                    [
+                        flet.ElevatedButton("ホーム", on_click=lambda e: page.go("/")),
+                        flet.Text("通知", size=30, weight=flet.FontWeight.BOLD),
+                        notifications_list_panel()
+                    ]
+                    )
+                )
 
-        # page.scroll=flet.ScrollMode.ALWAYS
         page.update()
-    global l
-    if not l:
-        l=threading.Thread(target=listen,daemon=True)
-        l.start()
-    else:
-        return page.window.destroy()
+
+    voice_control_setup()
     while not voice:
         time.sleep(1)
     # イベントハンドラの登録
