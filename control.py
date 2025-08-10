@@ -53,7 +53,7 @@ def main(page:flet.Page):
     async def back(seconds=30):
         try:
             await asyncio.sleep(seconds)
-            if page.route=="/voice" or page.route=="/notifications" or page.route=="device_control":
+            if page.route=="/voice" or page.route=="/notifications" or page.route=="/device_control":
                 if current_time>0:
                     page.go("/media")
                 else:
