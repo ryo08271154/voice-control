@@ -191,16 +191,18 @@ class VoiceControl(VoiceRecognizer):
             if notifications:
                 commands=[VoiceCommand(user_input_text="",action_type="notification",reply_text=f"新しい通知があります")]
                 commands.extend([VoiceCommand(user_input_text="",action_type="notification",reply_text=f"{notification.message}") for notification in notifications])
-                self.notifications.extend(notifications)
                 self.yomiage(commands)
             time.sleep(1)
     def check_notification(self):
+        notifications=[]
         add_notifications=[]
         for plugin in self.plugins:
             plugin_notifications=plugin.get_active_notifications()
             for notification in plugin_notifications:
+                notifications.append(notification)
                 if notification not in self.notifications:
                     add_notifications.append(notification)
+        self.notifications=notifications
         return add_notifications
     def clear_notifications(self):
         for plugin in self.plugins:
