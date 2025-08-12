@@ -63,10 +63,10 @@ class SearchPlugin(BasePlugin):
     keywords=["検索", "ウェブ","開"]
     def execute(self, command):
         text=command.user_input_text
-        query=text.replace("検索","").replace("ウェブ","").replace("する","").replace("して","").replace("で","").replace("を","").replace("グーグル","").replace("Google","").replace("ユーチューブ","").replace("ティックトック","").replace("ツイッター","").replace("ウィキペディア","").replace("アマゾン","").replace("スポティファイ","").replace("マップ","").replace("地図","").replace("YouTube","").replace("TikTok","").replace("Twitter","").replace("Wikipedia","").replace("Amazon","").replace("Spotify","")
+        query=text.replace("検索","").replace("ウェブ","").replace("する","").replace("して","").replace("で","").replace("を","").replace("グーグル","").replace("Google","").replace("youtube","").replace("ユーチューブ","").replace("ティックトック","").replace("ツイッター","").replace("ウィキペディア","").replace("アマゾン","").replace("スポティファイ","").replace("マップ","").replace("地図","").replace("YouTube","").replace("TikTok","").replace("Twitter","").replace("Wikipedia","").replace("Amazon","").replace("Spotify","")
         search_url=None
         service_name=None
-        if "YouTube" in text or "ユーチューブ" in text:
+        if "YouTube" in text or "youtube" in text or "ユーチューブ" in text:
             search_url=f"https://www.youtube.com/results?search_query={query}"
             service_name="YouTube"
         elif "TikTok" in text or "ティックトック" in text:
@@ -84,12 +84,12 @@ class SearchPlugin(BasePlugin):
         elif "Spotify" in text or "スポティファイ" in text:
             search_url=f"https://open.spotify.com/search/{query}"
             service_name="Spotify"
-        elif "マップ" in text or "地図" in text:
-            search_url=f"https://www.google.com/maps/search/{query}"
-            service_name="Google Maps"
         elif "Google" in text or "グーグル" in text:
             search_url=f"https://www.google.com/search?q={query}"
             service_name="Google"
+        elif "マップ" in text or "地図" in text:
+            search_url=f"https://www.google.com/maps/search/{query}"
+            service_name="Google Maps"
         if ("開" in text or "ひら" in text):
             if search_url and service_name:
                 url=urllib.parse.urlparse(search_url)
