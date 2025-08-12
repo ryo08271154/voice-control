@@ -57,15 +57,24 @@ if __name__ == '__main__':
     else:
         config={}
         setup()
-    print("音声認識にVOSKを使用しているため、VOSKのモデルをダウンロードしておく必要があります。")
-    vosk_model_path=input("VOSKのモデルパスを入力してください") or config.get("vosk",{}).get("model_path","")
+    speech_engine=input("VOSKを利用する場合はvoskと入力してください Whisperを利用する場合はwhisperと入力してください:")
+    if speech_engine=="vosk":
+        print("音声認識にVOSKを使用しているため、VOSKのモデルをダウンロードしておく必要があります。")
+        vosk_model_path=input("VOSKのモデルパスを入力してください") or config.get("vosk",{}).get("model_path","")
+        speech_engine_json={"vosk":{"model_path":vosk_model_path}}
+    elif speech_engine=="whisper":
+        whisper_model_size_or_path=input("Whisperのモデルサイズまたはパスを入力してください:") or config.get("whisper",{}).get("model_size_or_path","")
+        whisper_device=config.get("whisper",{}).get("device","cpu")
+        whisper_compute_type=config.get("whisper",{}).get("compute_type","int8")
+        whisper_language=config.get("whisper",{}).get("language","ja")
+        speech_engine_json={"whisper":{"model_size_or_path":whisper_model_size_or_path,"device":whisper_device,"compute_type":whisper_compute_type,"language":whisper_language}}
     genai_apikey=input("GeminiのAPIキーを入力してください:") or config.get("genai",{}).get("apikey","")
     genai_model=input("Geminiが使用するモデル名を入力してください:") or config.get("genai",{}).get("model_name","")
     genai_system_instruction=input("Geminiのシステム指示を入力してください:") or config.get("genai",{}).get("system_instruction","")
     genius_api_token=input("GeniusのAPIトークンを入力してください:") or config.get("genius",{}).get("token","")
     yomiage_server_url=input("音声読み上げサーバーのURLを入力してください:") or config.get("server",{}).get("url","")
     plugins,plugins_config=plugin_config()
-    config={"vosk":{"model_path":vosk_model_path},"genai":{"apikey":genai_apikey,"model_name":genai_model,"system_instruction":genai_system_instruction},"mcpServers":{} or config.get("mcpServers",{}),"genius":{"token":genius_api_token},"server":{"url":yomiage_server_url,"action":config.get("server",{}).get("action","command"),"reply_text":config.get("server",{}).get("reply_text","message")},"plugins":plugins,"plugins_config":plugins_config}
+    config={**speech_engine_json,"genai":{"apikey":genai_apikey,"model_name":genai_model,"system_instruction":genai_system_instruction},"mcpServers":{} or config.get("mcpServers",{}),"genius":{"token":genius_api_token},"server":{"url":yomiage_server_url,"action":config.get("server",{}).get("action","command"),"reply_text":config.get("server",{}).get("reply_text","message")},"plugins":plugins,"plugins_config":plugins_config}
     with open(f"{dir_name}/config/config.json","w") as f:
         json.dump(config,f,indent=2)
         print("設定が保存されました。")

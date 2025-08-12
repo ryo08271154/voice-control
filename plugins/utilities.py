@@ -93,7 +93,7 @@ class SearchPlugin(BasePlugin):
         if ("開" in text or "ひら" in text):
             if search_url and service_name:
                 url=urllib.parse.urlparse(search_url)
-                webbrowser.open(f"{url.scheme}://{url.netloc}",autoraise=True)
+                webbrowser.open_new(f"{url.scheme}://{url.netloc}",autoraise=True)
                 command.reply_text = f"{service_name}を開きます。"
             self.is_plugin_mode=False
             return super().execute(command)
@@ -110,7 +110,7 @@ class SearchPlugin(BasePlugin):
                 search_url=f"https://www.google.com/search?q={query}"
                 service_name="Google"
             command.reply_text = f"{service_name}で「{query}」を検索します。"
-            webbrowser.open(search_url,autoraise=True)
+            webbrowser.open_new(search_url,autoraise=True)
             self.is_plugin_mode=False
         return super().execute(command)
 import subprocess
