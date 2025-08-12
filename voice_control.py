@@ -81,7 +81,7 @@ class VoiceRecognizer:
                 elif not is_speech and time.time() > self.speech_end_time or len(frames) >= self.sample_rate * 5:
                     self.end_of_speech = True
                     audio_data = np.array(frames, dtype=np.float32)
-                    segments, info = model.transcribe(audio_data, beam_size=5,vad_filter=True,language=language)
+                    segments, info = model.transcribe(audio_data, beam_size=3, vad_filter=True,language=language)
                     frames.clear()
                     text="".join(segment.text for segment in segments)
                     self.text=text
