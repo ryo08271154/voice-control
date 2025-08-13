@@ -14,49 +14,81 @@ from google import genai
 import re
 import webrtcvad
 import fastmcp
+from faster_whisper import WhisperModel
 from plugin import PluginManager
 from commands import VoiceCommand
 dir_name=os.path.dirname(__file__)
 class VoiceRecognizer:
     mute=False
-    def always_on_voice(self,model_path):
-        sample_rate = 16000
-        model=vosk.Model(model_path)
-        recognizer=vosk.KaldiRecognizer(model, sample_rate)
-        recognizer.SetPartialWords(False)
-        # PyAudioの設定
-        p = pyaudio.PyAudio()
-        vad = webrtcvad.Vad(2)
-        frame_duration = 30  # ms
-        frame_size = int(sample_rate * frame_duration / 1000)
-        frame_bytes = frame_size * 2  # 16-bit audio
-        stream = p.open(format=pyaudio.paInt16,
+    def __init__(self):
+        self.sample_rate = 16000
+        self.p = pyaudio.PyAudio()
+        self.vad = webrtcvad.Vad(2)
+        self.frame_duration = 30  # ms
+        self.frame_size = int(self.sample_rate * self.frame_duration / 1000)
+        self.frame_bytes = self.frame_size * 2  # 16-bit audio
+        self.stream = self.p.open(format=pyaudio.paInt16,
                         channels=1,
-                        rate=sample_rate,  # 16kHz に変更
+                        rate=self.sample_rate,  # 16kHz に変更
                         input=True,
-                        frames_per_buffer=frame_size)  # バッファサイズを適切に設定
-        end_of_speech = True
-        speech_end_time = time.time()
+                        frames_per_buffer=self.frame_size)  # バッファサイズを適切に設定
+        self.end_of_speech = True
+        self.speech_end_time = time.time()
+    def listen_vosk(self,model_path):
+        model=vosk.Model(model_path)
+        recognizer=vosk.KaldiRecognizer(model, self.sample_rate)
+        recognizer.SetPartialWords(False)
         while True:
             try:
-                data=stream.read(frame_size,exception_on_overflow=False)
-                if len(data) != frame_bytes:
+                data=self.stream.read(self.frame_size,exception_on_overflow=False)
+                if len(data) != self.frame_bytes:
                     continue  # フレーム長が正しくない場合スキップ
-                is_speech = vad.is_speech(data,sample_rate)
+                is_speech = self.vad.is_speech(data,self.sample_rate)
                 if is_speech:
-                    end_of_speech = False
+                    self.end_of_speech = False
                     print("聞き取り中",end="\r")
-                    speech_end_time = time.time() + 3  # 3秒無音で終了とみなす
-                elif not is_speech and time.time() > speech_end_time:
-                    end_of_speech = True
+                    self.speech_end_time = time.time() + 3  # 3秒無音で終了とみなす
+                elif not is_speech and time.time() > self.speech_end_time:
+                    self.end_of_speech = True
                     print("音声待機中",end="\r")
-                if end_of_speech==False and self.mute==False:
+                if self.end_of_speech==False and self.mute==False:
                     if recognizer.AcceptWaveform(data):
                         self.text=json.loads(recognizer.Result())["text"]
                         if self.text!="":
                             print("ユーザー:",self.text)
-                            end_of_speech = True
+                            self.end_of_speech = True
                             threading.Thread(target=self.command,args=(self.text,)).start()
+            except KeyboardInterrupt:
+                break
+    def listen_whisper(self,model_size_or_path,device,compute_type,language):
+        frames=[]
+        model = WhisperModel(model_size_or_path, device=device, compute_type=compute_type)
+        while True:
+            try:
+                data=self.stream.read(self.frame_size,exception_on_overflow=False)
+                audio_float = np.frombuffer(data, dtype=np.int16).astype(np.float32) / 32768.0
+                is_speech = self.vad.is_speech(data,self.sample_rate)
+                if self.mute:
+                    is_speech=False
+                    frames.clear()
+                    self.end_of_speech = True
+                    print("音声待機中",end="\r")
+                if is_speech and self.mute==False:
+                    frames.extend(audio_float)
+                    self.end_of_speech = False
+                    print("聞き取り中",end="\r")
+                    self.speech_end_time = time.time() + 3  # 3秒無音で終了とみなす
+                elif not is_speech and time.time() > self.speech_end_time or len(frames) >= self.sample_rate * 5:
+                    self.end_of_speech = True
+                    audio_data = np.array(frames, dtype=np.float32)
+                    segments, info = model.transcribe(audio_data, beam_size=3, vad_filter=True,language=language)
+                    frames.clear()
+                    text="".join(segment.text for segment in segments)
+                    self.text=text
+                    if self.text!="":
+                        print("ユーザー:",self.text)
+                        threading.Thread(target=self.command,args=(self.text,)).start()
+                    print("音声待機中",end="\r")
             except KeyboardInterrupt:
                 break
 class VoiceControl(VoiceRecognizer):
@@ -78,6 +110,7 @@ class VoiceControl(VoiceRecognizer):
         self.routine_list=[routine for routine in self.custom_routines["routineList"]]
         self.notifications=[]
         threading.Thread(target=self.watch_notifications,daemon=True).start()
+        super().__init__()
     def judge(self,command):
         text=command.user_input_text
         action=None
@@ -256,6 +289,9 @@ def run():
     config=json.load(open(os.path.join(dir_name,"config","config.json")))
     c=Control(custom_devices,custom_scenes)
     voice=VoiceControl(c.custom_devices,custom_routines,c,config)
-    voice.always_on_voice(config["vosk"]["model_path"])
+    if config.get("vosk"):
+        voice.listen_vosk(config["vosk"]["model_path"])
+    elif config.get("whisper"):
+        voice.listen_whisper(config["whisper"]["model_size_or_path"],config["whisper"]["device"],config["whisper"]["compute_type"],config["whisper"]["language"])
 if __name__=="__main__":
     run()

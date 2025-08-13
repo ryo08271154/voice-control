@@ -26,7 +26,10 @@ def main(page:flet.Page):
             c=voice_control.Control(custom_devices,custom_scenes)
             voice=VoiceControl(c.custom_devices,custom_routines,c,config)
             def listen(config):
-                voice.always_on_voice(config["vosk"]["model_path"])
+                if config.get("vosk"):
+                    voice.listen_vosk(config["vosk"]["model_path"])
+                elif config.get("whisper"):
+                    voice.listen_whisper(config["whisper"]["model_size_or_path"],config["whisper"]["device"],config["whisper"]["compute_type"],config["whisper"]["language"])
             if not l:
                 l=threading.Thread(target=listen,args=(config,),daemon=True)
                 l.start()
