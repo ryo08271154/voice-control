@@ -179,6 +179,35 @@ class VoiceControl(VoiceRecognizer):
         if commands or self.reply!="":
             self.yomiage(commands)
     def ask_gemini(self,text,entities):
+        def get_plugin_list() -> list:
+            """
+            These plugins(features) have not been retrieved. Get a list of plugins(features) that have not been retrieved. Required for plugin execution.
+            Returns:
+                list: A list of plugin names that can be executed with execute_plugin().
+            """
+            plugins = []
+            for plugin in self.plugins:
+                name = plugin.name
+                description = plugin.description
+                keywords = plugin.keywords
+                plugins.append({"name":name,"description":description,"keywords":keywords})
+            print("プラグイン一覧を取得しました")
+            return plugins
+        def execute_plugin(plugin_name: str, prompt: str) -> str:
+            """ Execute a plugin(feature) that have not been retrieved using the given prompt.
+            Args:
+                plugin_name: The name of the plugin to execute. Must be obtained from get_plugin_list().
+                prompt: The prompt to use for the plugin. Should include a keyword obtained from get_plugin_list().
+            Returns:
+                The response from the plugin.
+            """
+            for plugin in self.plugins:
+                if plugin.name == plugin_name:
+                    print(f"{plugin_name} を実行します: {prompt}")
+                    command = plugin.execute(VoiceCommand(prompt))
+                    return command.reply_text
+            return "Plugin not found"
+        plugin_tools = [get_plugin_list, execute_plugin]
         print("AIが回答します")
         for name in entities:
             for e in entities[name]:
@@ -200,13 +229,13 @@ class VoiceControl(VoiceRecognizer):
                 async with mcp_client:
                     await mcp_client.ping()
                     tools = await mcp_client.list_tools()
-                    tools=[mcp_client.session]
+                    tools=[*plugin_tools, mcp_client.session]
                     response = await generate_content(text,tools)
                     return response
             if self.mcp_servers:
                 genai_response=asyncio.run(mcp_generate_content(text))
             else:
-                genai_response=asyncio.run(generate_content(text,[]))
+                genai_response=asyncio.run(generate_content(text,[*plugin_tools]))
             reply_text=genai_response.text.replace("\n","")
         except Exception as e:
             reply_text=f"エラーが発生しました"
