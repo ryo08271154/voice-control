@@ -93,8 +93,8 @@ class VoiceRecognizer:
                 break
 class VoiceControl(VoiceRecognizer):
     def __init__(self,custom_devices,custom_routines,control,config):
-        self.words=["教","何","ですか","なに","とは","について","ますか","して","開いて","送","する","どこ","いつ","なんで","なぜ","どうして","調","通知","お知らせ"]
-        self.words.extend(["teach", "what", "is", "about", "how", "tell", "show", "open", "send", "do", "make", "explain", "help", "please", "can", "you", "me", "this", "that", "create", "give","where","when","why","how","notification","notify"]) # 英語対応用
+        self.words=["教","何","ですか","なに","とは","について","ますか","して","開いて","送","する","どこ","いつ","なんで","なぜ","どうして","調","通知","お知らせ","つけ","付け","オン","けし","消し","決して","オフ"]
+        self.words.extend(["teach", "what", "is", "about", "how", "tell", "show", "open", "send", "do", "make", "explain", "help", "please", "can", "you", "me", "this", "that", "create", "give","where","when","why","how","notification","notify","on","off","turn"]) # 英語対応用
         self.custom_devices_name=[i["deviceName"] for i in custom_devices["deviceList"]]
         self.words.extend(self.custom_devices_name)
         self.control=control
@@ -151,39 +151,46 @@ class VoiceControl(VoiceRecognizer):
         command.action_type=action
         return command
     def command(self,text):
-        self.reply=""
-        text=text.replace(" ","")
-        text=unicodedata.normalize("NFKC",text)
-        commands=[]
+        self.reply = ""
+        text = text.replace(" ","")
+        text = unicodedata.normalize("NFKC",text)
+        commands = []
+        command = VoiceCommand(text)
         for routine in self.routine_list:
             if routine["routineName"] in text:
                 self.execute_routine(routine["routineName"])
-                break
-        else:
+                return
+        if len(text) < 13:
             for plugin in self.plugins:
-                command=VoiceCommand(text)
+                command = VoiceCommand(text)
                 if plugin.can_handle(text) or plugin.is_plugin_mode:
                     try:
-                        command=plugin.execute(command)
-                        if command.reply_text!="":
+                        command = plugin.execute(command)
+                        if command.reply_text != "":
                             commands.append(command)
                     except Exception as e:
                         print(f"プラグイン {plugin.name} の実行中にエラーが発生しました: {e}")
-            if not commands:
-                for i in self.words:
-                    if i in text:
-                        commands.append(self.judge(command))
-                        break
-                else:
-                    self.control.custom_scene_control(text)
-        if commands or self.reply!="":
+        if not commands:
+            for i in self.words:
+                if i in text:
+                    commands.append(self.judge(command))
+                    break
+            else:
+                self.control.custom_scene_control(text)
+        if commands or self.reply != "":
             self.yomiage(commands)
     def ask_gemini(self,text,entities):
         def get_plugin_list() -> list:
             """
             These plugins(features) have not been retrieved. Get a list of plugins(features) that have not been retrieved. Required for plugin execution.
             Returns:
-                list: A list of plugin names that can be executed with execute_plugin().
+                list[dict[str, object]]: A list of plugin dictionaries.
+                    Each plugin dictionary contains:
+                        - name (str): The plugin name (used with execute_plugin()).
+                        - description (str): A short explanation of the plugin.
+                        - keywords (list[str]): Keywords related to the plugin,
+                                                should be included in the prompt
+                                                when using execute_plugin().
             """
             plugins = []
             for plugin in self.plugins:
