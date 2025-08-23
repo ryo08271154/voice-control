@@ -8,6 +8,7 @@ PyAudio
 PyChromecast
 requests
 vosk
+webrtcvad
 lyricsgenius
 beautifulsoup4
 fastmcp

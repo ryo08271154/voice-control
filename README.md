@@ -1,9 +1,11 @@
 # 音声操作アプリケーション
 
 ## 概要
+
 音声コマンドを使用してさまざまなデバイスを操作したり、Geminiに質問したりすることができます。
 
 ## 特徴
+
 - **デバイス操作**: 照明、テレビ、エアコンなどのスマートデバイスを声で制御できます。
 - **メディア制御**: Chromecastのメディアの再生、一時停止、などが可能です。
 - **情報検索**: 現在時刻、日付、天気予報などを声で確認できます。
@@ -12,13 +14,16 @@
 - **オフライン音声認識**: VOSKまたはWhisperを使用できるため、音声認識はオフラインで動作します。
 
 ## インストール手順
+
 1. リポジトリをクローンします。
+
    ```bash
    git clone https://github.com/ryo08271154/voice_control.git
    cd voice_control
    ```
 
 2. 必要なライブラリをインストールします。
+
    ```bash
    pip install -r requirements.txt
    ```
@@ -33,9 +38,11 @@
     1. Whisperのモデルをダウンロードする必要はありません。Whisperは自動的にモデルをダウンロードします。
 
 4. アプリケーションの設定を行います。
+
    ```bash
    python edit_config.py
    ```
+
    以下の情報の入力を求められます：
    - 使用する音声認識エンジン（VOSKまたはWhisper）
    - VOSKモデルのパス（VOSKを使用する場合）
@@ -50,6 +57,7 @@
    設定が完了すると、`config/config.json`が自動的に作成されます。
    - **MCPの設定（任意）**:
       GeminiでMCPを使用する場合、`config/config.json`に手動で追加する必要があります。
+
      ```json
      {
        "mcpServers": {
@@ -62,6 +70,7 @@
    `config`ディレクトリ内の以下のJSONファイルを編集してください：
 
    - **`custom_scenes.json`**: カスタムシーンの設定
+
      ```json
      {
        "sceneList": [
@@ -74,6 +83,7 @@
      ```
 
    - **`custom_devices.json`**: カスタムデバイスの設定
+
      ```json
      {
        "deviceList": [
@@ -85,7 +95,9 @@
        ]
      }
      ```
+
    - **`custom_routines.json`**: カスタムルーチンの設定
+
      ```json
      {
        "routineList": [
@@ -104,16 +116,19 @@
 ## 使用方法
 
 ### コマンドラインから実行
+
 ```bash
 python voice_control.py
 ```
 
 ### GUIアプリケーションとして実行
+
 ```bash
 python control.py
 ```
 
 ### 音声コマンド例
+
 以下は、音声コマンドの例です。このコマンド以外にもさまざまなコマンドが使えます。
 
 - **デバイスの操作**
@@ -142,16 +157,21 @@ python control.py
   - 「○○とは何ですか？」：様々な質問にAIが回答します
 
 ## 必要なAPIキー
+
 必須:
+
 - **Google Generative AI (Gemini)**: AI対話機能に使用
 
 任意:
+
 - **OpenWeatherMap API**: 天気情報の取得機能を使用する場合に必要
 - **SwitchBot API**: SwitchBotデバイスを制御する場合に必要
+- **Home Assistant API**: Home Assistantデバイスを制御する場合に必要
 - **Genius API**: 歌詞表示機能を使用する場合に必要
 
 ## 操作対応デバイス
+
 - SwitchBot対応デバイス（ライト、テレビ、エアコンなど）
 - Chromecast（メディア再生、音量制御）
+- Home Assistant対応デバイス
 - カスタムデバイス（コマンドライン経由で制御可能なデバイス）
-
