@@ -45,6 +45,7 @@ def main(page:flet.Page):
     current_time_text= flet.Text(datetime.datetime.now().strftime("%Y/%m/%d\n%H:%M:%S"), size=20, text_align=flet.TextAlign.CENTER)
     talk_text=flet.Text("",size=50)
     reply=flet.Text("", size=100,text_align=flet.TextAlign.CENTER,expand=True)
+    custom_view = None
     async def update_time():
         while True:
             current_datetime_text.value =datetime.datetime.now().strftime("%Y/%m/%d(%a)\n%H:%M:%S")
@@ -172,10 +173,12 @@ def main(page:flet.Page):
             super().yomiage(commands)
             page.run_task(back)
     def result(v):
-        global voice
-        talk_text.value=v.user_input_text
-        reply.value=v.reply_text
-        voice.reply=v.reply_text
+        global voice,custom_view
+        talk_text.value = v.user_input_text
+        reply.value = v.reply_text
+        voice.reply = v.reply_text
+        custom_view = v.flet_view
+        page.go("/")
         for name in ["をオン","をオフ"]:
             if name in v.reply_text:
                 page.go("/device_control")
@@ -185,6 +188,21 @@ def main(page:flet.Page):
                 page.go("/notifications")
             else:
                 page.go("/voice")
+    def voice_view():
+        global custom_view
+        if custom_view:
+            return custom_view
+        default_view = flet.Column(
+            controls=[
+                flet.ElevatedButton("ホーム", on_click=lambda e:page.go("/")),
+                flet.Container(content=current_time_text, expand=True, alignment=flet.alignment.center),
+                flet.Container(content=talk_text, expand=True, alignment=flet.alignment.center),
+                flet.Container(content=reply,expand=True,alignment=flet.alignment.center),
+            ],
+            scroll=flet.ScrollMode.HIDDEN,
+            expand=True
+            )
+        return default_view
     def voice_screen(e):
         if page.window.full_screen==False:
             page.window.full_screen=True
@@ -360,17 +378,8 @@ def main(page:flet.Page):
                                             ],))
         if page.route=="/voice":
             page.views.append(flet.View("/voice",[
-                flet.Column(
-                    controls=[
-                    flet.ElevatedButton("ホーム", on_click=lambda e:page.go("/")),
-                    flet.Container(content=current_time_text, expand=True, alignment=flet.alignment.center),
-                    flet.Container(content=talk_text, expand=True, alignment=flet.alignment.center),
-                    flet.Container(content=reply,expand=True,alignment=flet.alignment.center),
-                    ],
-                scroll=flet.ScrollMode.HIDDEN,
-                expand=True
-                ),
-                text_container
+            voice_view(),
+            text_container
             ],
             ))
         if page.route == "/menu":
