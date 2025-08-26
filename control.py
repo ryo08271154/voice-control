@@ -178,7 +178,6 @@ def main(page:flet.Page):
         reply.value = v.reply_text
         voice.reply = v.reply_text
         custom_view = v.flet_view
-        page.go("/")
         for name in ["をオン","をオフ"]:
             if name in v.reply_text:
                 page.go("/device_control")
@@ -194,7 +193,6 @@ def main(page:flet.Page):
             return custom_view
         default_view = flet.Column(
             controls=[
-                flet.ElevatedButton("ホーム", on_click=lambda e:page.go("/")),
                 flet.Container(content=current_time_text, expand=True, alignment=flet.alignment.center),
                 flet.Container(content=talk_text, expand=True, alignment=flet.alignment.center),
                 flet.Container(content=reply,expand=True,alignment=flet.alignment.center),
@@ -377,9 +375,11 @@ def main(page:flet.Page):
                                             flet.Container(content=current_datetime_text,expand=True,alignment=flet.alignment.center,on_click=menu)
                                             ],))
         if page.route=="/voice":
+            view = voice_view()
             page.views.append(flet.View("/voice",[
-            voice_view(),
-            text_container
+                flet.ElevatedButton("ホーム", on_click=lambda e:page.go("/")),
+                view,
+                text_container
             ],
             ))
         if page.route == "/menu":
