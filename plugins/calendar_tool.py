@@ -67,6 +67,7 @@ class Calendar(GAuth):
 from plugin import BasePlugin
 
 import schedule
+import flet as ft
 import time
 import threading
 class CalendarPlugin(BasePlugin):
@@ -110,11 +111,15 @@ class CalendarPlugin(BasePlugin):
             if not all_events:
                 command.reply_text="予定が見つかりませんでした"
                 return super().execute(command)
+            lv=ft.ListView(spacing=10,padding=20,expand=True)
             command.reply_text=f"{date.day}日の予定は"
             for event in all_events:
                 start = datetime.datetime.fromisoformat(event["start"].get("dateTime", event["start"].get("date")))
-                command.reply_text+=f"{start.hour}時{start.minute}分{event.get('summary','タイトルなし')} "
-            command.reply_text+="です"
+                event_name = event.get("summary","タイトルなし")
+                command.reply_text+=f"{start.hour}時{start.minute}分{event_name} "
+                lv.controls.append(ft.Container(content=ft.Column([ft.Text(event_name,size=20),ft.Text(f"{start.hour}時{start.minute}分")]),bgcolor=ft.Colors.WHITE10,padding=10,border_radius=5))
+            command.reply_text += "です"
+            command.flet_view = lv
         else:
             command.reply_text="いつの予定を教えてほしいかわかりませんでした"
         return super().execute(command)
@@ -155,11 +160,14 @@ class TasksPlugin(BasePlugin):
             command.reply_text="タスクが見つかりませんでした"
             return super().execute(command)
         command.reply_text="タスクは"
+        lv=ft.ListView(spacing=10,padding=20,expand=True)
         for todo in todos:
             todo_date=todo.get("due","")
             todo_title=todo.get("title","タイトルなし")
             if todo_date:
                 todo_date=datetime.datetime.fromisoformat(todo_date)
                 command.reply_text+=f"{todo_title} "
-        command.reply_text+="です"
+                lv.controls.append(ft.Container(content=ft.Column([ft.Text(todo_title,size=20)]),bgcolor=ft.Colors.WHITE10,padding=10,border_radius=5))
+        command.reply_text += "です"
+        command.flet_view = lv
         return super().execute(command)

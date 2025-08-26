@@ -2,6 +2,7 @@ from plugin import BasePlugin
 import datetime
 import requests
 import schedule
+import flet as ft
 import time
 import threading
 from commands import VoiceCommand
@@ -49,6 +50,7 @@ class WeatherPlugin(BasePlugin):
         longitude=config.get("longitude")
         date=self.get_date(text)
         tenki=""
+        row = ft.Row(alignment=ft.MainAxisAlignment.CENTER,vertical_alignment=ft.MainAxisAlignment.CENTER,expand=True)
         if not openweathermap_apikey or not latitude or not longitude:
             tenki="天気情報を取得するためのAPIキーまたは位置情報が設定されていません。"
         elif not date:
@@ -56,14 +58,21 @@ class WeatherPlugin(BasePlugin):
         else:
             weather_json=requests.get(f"https://api.openweathermap.org/data/2.5/forecast?lat={latitude}&lon={longitude}&lang=ja&units=metric&appid={openweathermap_apikey}").json()
             for i in range(1,len(weather_json["list"])):
-                dt_txt=datetime.datetime.strptime(weather_json["list"][i]["dt_txt"],"%Y-%m-%d %H:%M:%S")
-                if dt_txt.day==date.day:
-                    if tenki=="":
-                        tenki=f'{date.day}日の{dt_txt.hour}時は{weather_json["list"][i]["main"]["temp"]}℃ {weather_json["list"][i]["weather"][0]["description"]} '
+                dt_txt = datetime.datetime.strptime(weather_json["list"][i]["dt_txt"],"%Y-%m-%d %H:%M:%S")
+                if dt_txt.day == date.day:
+                    row.controls.append(ft.Column(controls=[
+                        ft.Text(f"{dt_txt.hour}時",size=20),
+                        ft.Image(src=f"http://openweathermap.org/img/wn/{weather_json['list'][i]['weather'][0]['icon']}@2x.png",width=80,height=80),
+                        ft.Text(f"{weather_json['list'][i]['main']['temp']}℃",size=20),
+                        ft.Text(weather_json['list'][i]['weather'][0]['description'],size=15)
+                        ],expand=True,alignment=ft.MainAxisAlignment.CENTER))
+                    if tenki == "":
+                        tenki = f'{date.day}日の{dt_txt.hour}時は{weather_json["list"][i]["main"]["temp"]}℃ {weather_json["list"][i]["weather"][0]["description"]} '
                     else:
-                        tenki+=f'{dt_txt.hour}時は{weather_json["list"][i+1]["main"]["temp"]}℃ {weather_json["list"][i+1]["weather"][0]["description"]} '
+                        tenki += f'{dt_txt.hour}時は{weather_json["list"][i+1]["main"]["temp"]}℃ {weather_json["list"][i+1]["weather"][0]["description"]} '
                 elif dt_txt.day>date.day:
-                    tenki+="でしょう"
+                    tenki += "でしょう"
+                    command.flet_view = row
                     break
             else:
                 tenki="天気情報が見つかりませんでした"

@@ -41,7 +41,7 @@ class WatchList:
                     self.save_cookies(self.session.cookies)
                 else:
                     print("ログイン情報がありません")
-                    return False
+                    raise Exception("ログイン情報がありません")
             else:
                 print("ログイン済み")
             return True
@@ -59,43 +59,38 @@ class WatchList:
         soup=BeautifulSoup(response.text,"html.parser")
         count=soup.find("div",class_="title-section").find("p").text
         reviews=soup.find_all("a",class_="title-item")
-        reply_text=""
-        for review in reviews[:5]:
-            title=review.find("p").text
-            review_title=review.find("h3").text
-            reply_text+=f"タイトル{title}の{review_title} "
-        reply_text+=f"の{count}の視聴記録が見つかりました。"
-        return reply_text
-    def monthly_review(self):
-        response=self.session.get(f"{self.server_url}/mypage/reviews")
-        soup=BeautifulSoup(response.text,"html.parser")
-        reviews=soup.find("div",class_="title-section").find("div",class_="title-container").find_all("a",class_="title-item")
-        count=len(reviews)
-        reply_text="今月は"
+        review_list = []
         for review in reviews:
-            title=review.find("p").text
-            review_title=review.find("h3").text
-            reply_text+=f"タイトル{title}の{review_title} "
-        reply_text+=f"の{count}件の視聴記録が見つかりました。"
-        return reply_text
+            title = review.find("p").text
+            review_title = review.find("h3").text
+            review_list.append((title,review_title))
+        return review_list
+    def monthly_review(self):
+        response = self.session.get(f"{self.server_url}/mypage/reviews")
+        soup = BeautifulSoup(response.text,"html.parser")
+        reviews = soup.find("div",class_="title-section").find("div",class_="title-container").find_all("a",class_="title-item")
+        review_list = []
+        for review in reviews:
+            title = review.find("p").text
+            review_title = review.find("h3").text
+            review_list.append((title,review_title))
+        return review_list
     def today_episodes(self):
-        response=self.session.get(self.server_url)
-        soup=BeautifulSoup(response.text,"html.parser")
+        response = self.session.get(self.server_url)
+        soup = BeautifulSoup(response.text,"html.parser")
         for topics in soup.find_all("div",class_="title-section"):
-            if topics.find("h2").text=="24時間以内に放送されたエピソード":
-                episodes=topics.find_all("a",class_="title-item")
-                count=len(episodes)
-                reply_text="24時間以内に放送されたエピソードは"
+            if topics.find("h2").text == "24時間以内に放送されたエピソード":
+                episodes = topics.find_all("a",class_="title-item")
+                episode_list = []
                 for episode in episodes:
-                    data=episode.find_all("p")
-                    title=data[1].text
-                    air_date=data[0].text
-                    episode_title=episode.find("div",class_="episode-item").find("h3").text
-                    reply_text+=f"タイトル{title}の{episode_title} "
-                reply_text+=f"の{count}件です。"
-                return reply_text
+                    data = episode.find_all("p")
+                    title = data[1].text
+                    air_date = data[0].text
+                    episode_title = episode.find("div",class_="episode-item").find("h3").text
+                    episode_list.append((title,episode_title,air_date))
+                return episode_list
         else:
-            return "24時間以内に放送されたエピソードが見つかりませんでした"
+            return []
     def watch_schedule(self):
         response=self.session.get(f"{self.server_url}/watch_schedule")
         soup=BeautifulSoup(response.text,"html.parser")
@@ -112,6 +107,7 @@ class WatchList:
                 reply_text+=f"の{count}です。"
         return reply_text
 from plugin import BasePlugin
+import flet as ft
 class WatchListPlugin(BasePlugin):
     name="watchlist"
     description="視聴記録(https://github.com/ryo08271154/watchlist)専用のプラグイン"
@@ -124,16 +120,28 @@ class WatchListPlugin(BasePlugin):
         username=config.get("username")
         password=config.get("password")
         self.session.login_check(username,password)
+        reviews = []
+        episodes = []
+        reply_text = ""
         if "今月" in command.user_input_text:
-            reply_text=self.session.monthly_review()
+            reviews = self.session.monthly_review()
+            reply_text = f"{len(reviews)}件見つかりました"
         elif "今日" in command.user_input_text:
-            reply_text=self.session.today_episodes()
+            episodes = self.session.today_episodes()
+            reply_text = f"{len(episodes)}件見つかりました"
         elif "予定" in command.user_input_text:
-            reply_text=self.session.watch_schedule()
+            reply_text = self.session.watch_schedule()
         elif "視聴" in command.user_input_text or "見た" in command.user_input_text or "検索" in command.user_input_text:
             keyword=command.user_input_text.replace("視聴記録","").replace("見た","").replace("検索","").replace("の","").replace("で","").replace("して","")
-            reply_text=self.session.review_search(keyword)
+            reviews = self.session.review_search(keyword)
+            reply_text = f"{len(reviews)}件見つかりました"
         else:
             reply_text="視聴記録の何を検索するかわかりませんでした"
-        command.reply_text=reply_text
+        lv = ft.ListView(spacing=10,padding=20,expand=True)
+        for title, review in reviews:
+            lv.controls.append(ft.Container(content=ft.Column([ft.Text(title,size=20),ft.Text(review)]),bgcolor=ft.Colors.WHITE10,padding=10,border_radius=5))
+        for title, episode_title, air_date in episodes:
+            lv.controls.append(ft.Container(content=ft.Column([ft.Text(title,size=20),ft.Text(episode_title),ft.Text(air_date)]),bgcolor=ft.Colors.WHITE10,padding=10,border_radius=5))
+        command.reply_text = reply_text
+        command.flet_view = lv
         return super().execute(command)

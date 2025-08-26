@@ -1,5 +1,5 @@
 from plugin import BasePlugin
-
+import flet as ft
 import time
 import re
 
@@ -20,18 +20,22 @@ class RandomPlugin(BasePlugin):
                 max_value = int(re.sub(r"\D","",value[1]))
         random_number = random.randint(min_value, max_value)
         command.reply_text=f"{min_value}から{max_value}で乱数を生成しました。結果は {random_number} です"
+        command.flet_view = ft.Container(ft.Text(random_number,size=100,text_align=ft.TextAlign.CENTER),alignment=ft.alignment.center,expand=True)
         return super().execute(command)
 class DicePlugin(BasePlugin):
     name="Dice"
     keywords=["サイコロ", "ダイス"]
     description="サイコロを振る"
     def execute(self, command):
+        DICE_EMOJI = ["⚀", "⚁", "⚂", "⚃", "⚄", "⚅"]
         dice_number = random.randint(1, 6)
         command.reply_text=f"サイコロを振りました。結果は {dice_number} です"
+        command.flet_view = ft.Container(ft.Text(DICE_EMOJI[dice_number - 1],size=100,text_align=ft.TextAlign.CENTER),alignment=ft.alignment.center,expand=True)
         return super().execute(command)
 
 import xml.etree.ElementTree as ET
 import requests
+import webbrowser
 class RSSPlugin(BasePlugin):
     name="RSS"
     description="RSSフィードを読み込む"
@@ -44,6 +48,7 @@ class RSSPlugin(BasePlugin):
             command.reply_text = "RSSフィードのURLが設定されていません。"
             return command
         reply_text=""
+        lv = ft.ListView(spacing=10,padding=20,expand=True)
         for url in rss_urls:
             rss_feed=requests.get(url)
             root=ET.fromstring(rss_feed.text)
@@ -51,11 +56,18 @@ class RSSPlugin(BasePlugin):
             rss_title=root.find("./channel/title")
             reply_text += f"{rss_title.text} からです "
             for item in items[:5]: #最新5件のニュースを取得
-                    reply_text += f"{item.find('title').text} "
+                    reply_text += item.find("title").text
+            for item in items:
+                title = item.find("title").text
+                description = item.find("description").text if item.find("description") is not None else ""
+                link = item.find("link").text
+                topic = ft.Container(content=ft.Column([ft.Text(title,size=20),ft.Text(description),ft.Text(rss_title.text)]),bgcolor=ft.Colors.WHITE10,padding=10,border_radius=5)
+                topic.on_click = lambda e, url = link: webbrowser.open_new(url)
+                lv.controls.append(topic)
+        command.flet_view = lv
         command.reply_text = reply_text
         return super().execute(command)
 
-import webbrowser
 import urllib.parse
 class SearchPlugin(BasePlugin):
     name="WebSearch"
