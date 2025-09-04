@@ -1,12 +1,17 @@
+from plugin import BasePlugin
+import flet as ft
 import requests
 import pickle
 from bs4 import BeautifulSoup
+
+
 class WatchList:
-    def __init__(self,server_url="http://127.0.0.1:8000"):
-        self.server_url=server_url
-        self.session=requests.session()
-        self.cookies=self.load_cookies()
+    def __init__(self, server_url="http://127.0.0.1:8000"):
+        self.server_url = server_url
+        self.session = requests.session()
+        self.cookies = self.load_cookies()
         self.session.cookies.update(self.cookies)
+
     def load_cookies(self):
         try:
             with open("config/watchlist_cookies.pkl", "rb") as f:
@@ -14,30 +19,38 @@ class WatchList:
         except FileNotFoundError:
             cookies = {}
         return cookies
-    def save_cookies(self,cookies):
+
+    def save_cookies(self, cookies):
         with open("config/watchlist_cookies.pkl", "wb") as f:
             pickle.dump(cookies, f)
-    def account_login(self,username,password):
+
+    def account_login(self, username, password):
         try:
-            csrf_token=self.session.get(f"{self.server_url}/accounts/login/").cookies.get("csrftoken")
-            self.session.post(f"{self.server_url}/accounts/login/",data={"username":username,"password":password,"csrfmiddlewaretoken":csrf_token})
+            csrf_token = self.session.get(
+                f"{self.server_url}/accounts/login/").cookies.get("csrftoken")
+            self.session.post(f"{self.server_url}/accounts/login/", data={
+                              "username": username, "password": password, "csrfmiddlewaretoken": csrf_token})
             print("ログインしました")
         except:
             print("ログインに失敗しました")
+
     def account_logout(self):
         try:
-            csrf_token=self.session.get(f"{self.server_url}/").cookies.get("csrftoken")
-            self.session.post(f"{self.server_url}/accounts/logout/",data={"csrfmiddlewaretoken":csrf_token})
+            csrf_token = self.session.get(
+                f"{self.server_url}/").cookies.get("csrftoken")
+            self.session.post(f"{self.server_url}/accounts/logout/",
+                              data={"csrfmiddlewaretoken": csrf_token})
             print("ログアウトしました")
         except:
             print("ログアウトに失敗しました")
-    def login_check(self,username="",password=""):
+
+    def login_check(self, username="", password=""):
         try:
-            index=self.session.get(self.server_url)
+            index = self.session.get(self.server_url)
             if index.history:
                 print("ログイン中")
                 if username and password:
-                    self.account_login(username,password)
+                    self.account_login(username, password)
                     self.save_cookies(self.session.cookies)
                 else:
                     print("ログイン情報がありません")
@@ -48,78 +61,87 @@ class WatchList:
         except Exception as e:
             print(f"ログインチェックに失敗しました: {e}")
             return False
-    def search(self,keyword,type=""):
-        params={"q":keyword,"type":type}
-        if type=="":
+
+    def search(self, keyword, type=""):
+        params = {"q": keyword, "type": type}
+        if type == "":
             del params["type"]
-        response=self.session.get(f"{self.server_url}/search",params=params)
+        response = self.session.get(f"{self.server_url}/search", params=params)
         return response
-    def review_search(self,keyword):
-        response=self.search(keyword,"record")
-        soup=BeautifulSoup(response.text,"html.parser")
-        count=soup.find("div",class_="title-section").find("p").text
-        reviews=soup.find_all("a",class_="title-item")
+
+    def review_search(self, keyword):
+        response = self.search(keyword, "record")
+        soup = BeautifulSoup(response.text, "html.parser")
+        count = soup.find("div", class_="title-section").find("p").text
+        reviews = soup.find_all("a", class_="title-item")
         review_list = []
         for review in reviews:
             title = review.find("p").text
             review_title = review.find("h3").text
-            review_list.append((title,review_title))
+            review_list.append((title, review_title))
         return review_list
+
     def monthly_review(self):
         response = self.session.get(f"{self.server_url}/mypage/reviews")
-        soup = BeautifulSoup(response.text,"html.parser")
-        reviews = soup.find("div",class_="title-section").find("div",class_="title-container").find_all("a",class_="title-item")
+        soup = BeautifulSoup(response.text, "html.parser")
+        reviews = soup.find("div", class_="title-section").find("div",
+                                                                class_="title-container").find_all("a", class_="title-item")
         review_list = []
         for review in reviews:
             title = review.find("p").text
             review_title = review.find("h3").text
-            review_list.append((title,review_title))
+            review_list.append((title, review_title))
         return review_list
+
     def today_episodes(self):
         response = self.session.get(self.server_url)
-        soup = BeautifulSoup(response.text,"html.parser")
-        for topics in soup.find_all("div",class_="title-section"):
+        soup = BeautifulSoup(response.text, "html.parser")
+        for topics in soup.find_all("div", class_="title-section"):
             if topics.find("h2").text == "24時間以内に放送されたエピソード":
-                episodes = topics.find_all("a",class_="title-item")
+                episodes = topics.find_all("a", class_="title-item")
                 episode_list = []
                 for episode in episodes:
                     data = episode.find_all("p")
                     title = data[1].text
                     air_date = data[0].text
-                    episode_title = episode.find("div",class_="episode-item").find("h3").text
-                    episode_list.append((title,episode_title,air_date))
+                    episode_title = episode.find(
+                        "div", class_="episode-item").find("h3").text
+                    episode_list.append((title, episode_title, air_date))
                 return episode_list
         else:
             return []
+
     def watch_schedule(self):
-        response=self.session.get(f"{self.server_url}/watch_schedule")
-        soup=BeautifulSoup(response.text,"html.parser")
-        reply_text=""
-        for day in soup.find_all("div",class_="title-section"):
-            date=day.find("h2").text
-            reply_text+=f"{date}に放送予定のエピソードは"
-            episodes=day.find("div",class_="title-container").find_all("a",class_="title-item")
-            count=len(episodes)
+        response = self.session.get(f"{self.server_url}/watch_schedule")
+        soup = BeautifulSoup(response.text, "html.parser")
+        reply_text = ""
+        for day in soup.find_all("div", class_="title-section"):
+            date = day.find("h2").text
+            reply_text += f"{date}に放送予定のエピソードは"
+            episodes = day.find(
+                "div", class_="title-container").find_all("a", class_="title-item")
+            count = len(episodes)
             for episode in episodes:
-                data=episode.find_all("p")
-                title=data[1].text
-                reply_text+=f"タイトル{title} "
-                reply_text+=f"の{count}です。"
+                data = episode.find_all("p")
+                title = data[1].text
+                reply_text += f"タイトル{title} "
+                reply_text += f"の{count}です。"
         return reply_text
-from plugin import BasePlugin
-import flet as ft
+
+
 class WatchListPlugin(BasePlugin):
-    name="watchlist"
-    description="視聴記録(https://github.com/ryo08271154/watchlist)専用のプラグイン"
-    keywords=["視聴記録","リスト","見た","見てる","見る","視聴"]
-    required_config=["server_url","username","password"]
-    session=WatchList()
+    name = "watchlist"
+    description = "視聴記録(https://github.com/ryo08271154/watchlist)専用のプラグイン"
+    keywords = ["視聴記録", "リスト", "見た", "見てる", "見る", "視聴"]
+    required_config = ["server_url", "username", "password"]
+    session = WatchList()
+
     def execute(self, command):
-        config=self.get_config()
-        self.session.server_url=config.get("server_url")
-        username=config.get("username")
-        password=config.get("password")
-        self.session.login_check(username,password)
+        config = self.get_config()
+        self.session.server_url = config.get("server_url")
+        username = config.get("username")
+        password = config.get("password")
+        self.session.login_check(username, password)
         reviews = []
         episodes = []
         reply_text = ""
@@ -132,16 +154,19 @@ class WatchListPlugin(BasePlugin):
         elif "予定" in command.user_input_text:
             reply_text = self.session.watch_schedule()
         elif "視聴" in command.user_input_text or "見た" in command.user_input_text or "検索" in command.user_input_text:
-            keyword=command.user_input_text.replace("視聴記録","").replace("見た","").replace("検索","").replace("の","").replace("で","").replace("して","")
+            keyword = command.user_input_text.replace("視聴記録", "").replace("見た", "").replace(
+                "検索", "").replace("の", "").replace("で", "").replace("して", "")
             reviews = self.session.review_search(keyword)
             reply_text = f"{len(reviews)}件見つかりました"
         else:
-            reply_text="視聴記録の何を検索するかわかりませんでした"
-        lv = ft.ListView(spacing=10,padding=20,expand=True)
+            reply_text = "視聴記録の何を検索するかわかりませんでした"
+        lv = ft.ListView(spacing=10, padding=20, expand=True)
         for title, review in reviews:
-            lv.controls.append(ft.Container(content=ft.Column([ft.Text(title,size=20),ft.Text(review)]),bgcolor=ft.Colors.WHITE10,padding=10,border_radius=5))
+            lv.controls.append(ft.Container(content=ft.Column([ft.Text(title, size=20), ft.Text(
+                review)]), bgcolor=ft.Colors.WHITE10, padding=10, border_radius=5))
         for title, episode_title, air_date in episodes:
-            lv.controls.append(ft.Container(content=ft.Column([ft.Text(title,size=20),ft.Text(episode_title),ft.Text(air_date)]),bgcolor=ft.Colors.WHITE10,padding=10,border_radius=5))
+            lv.controls.append(ft.Container(content=ft.Column([ft.Text(title, size=20), ft.Text(
+                episode_title), ft.Text(air_date)]), bgcolor=ft.Colors.WHITE10, padding=10, border_radius=5))
         command.reply_text = reply_text
         command.flet_view = lv
         return super().execute(command)
