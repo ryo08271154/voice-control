@@ -200,6 +200,7 @@ class VoiceControl(VoiceRecognizer):
                 self.control.custom_scene_control(text)
         if commands or self.reply != "":
             self.yomiage(commands)
+        return commands
 
     def ask_gemini(self, text, entities):
         def get_plugin_list() -> list:
@@ -236,9 +237,14 @@ class VoiceControl(VoiceRecognizer):
                 if plugin.name == plugin_name:
                     print(f"{plugin_name} を実行します: {prompt}")
                     command = plugin.execute(VoiceCommand(prompt))
-                    return command.reply_text
+                    if command.reply_text != "":
+                        return command.reply_text
+                    else:
+                        return "The plugin did not respond. Please change the prompt and try again."
             return "Plugin not found"
-        plugin_tools = [get_plugin_list, execute_plugin]
+
+        plugin_tools = [get_plugin_list, execute_plugin,
+                        self.get_routine_list, self.execute_routine]
         print("AIが回答します")
         for name in entities:
             for e in entities[name]:
@@ -276,9 +282,23 @@ class VoiceControl(VoiceRecognizer):
             print(e)
         return reply_text
 
-    def execute_routine(self, routine_name):
+    def get_routine_list(self) -> list:
+        """
+        Returns a list of available routines.
+        Returns:
+            list[str]: A list of routine names.
+        """
+        print("ルーチン一覧を取得しました")
+        return self.routine_list
+
+    def execute_routine(self, routine_name: str):
+        """Execute a routine by its name.
+        Args:
+            routine_name: The name of the routine to execute. Must be obtained from get_routine_list().
+        """
         for routine in self.routine_list:
             if routine["routineName"] == routine_name:
+                print(f"{routine_name}を実行します")
                 for command in routine["commands"]:
                     self.command(command)
                 break
