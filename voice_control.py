@@ -247,6 +247,14 @@ class VoiceControl(VoiceRecognizer):
         def get_device_and_scene_list() -> dict:
             """
             Get the list of devices and scenes.
+            Note:
+                To interact with or control devices and scenes, you must call the following functions:
+                    - Custom items:
+                        - `custom_device_control` for custom devices
+                        - `custom_scene_control` for custom scenes
+                    - Plugin items:
+                        - `plugin_device_control` for plugin devices
+                        - `plugin_scene_control` for plugin scenes
 
             Returns:
                 dict: A dictionary with two keys:
@@ -284,8 +292,8 @@ class VoiceControl(VoiceRecognizer):
             Control plugin devices (differs from custom_device_control).
 
             Args:
-                plugin_name (str): The name of the plugin to execute. Must be obtained from get_device_list().
-                device_name (str): The name of the device to control. Must be obtained from get_device_list().
+                plugin_name (str): The name of the plugin to execute. Must be obtained from get_device_and_scene_list().
+                device_name (str): The name of the device to control. Must be obtained from get_device_and_scene_list().
                 action (str): The action to perform ("turnOn" or "turnOff").
             Returns:
                 str: A message indicating the action performed.
@@ -305,8 +313,8 @@ class VoiceControl(VoiceRecognizer):
             """
             Control plugin scenes (differs from custom_scene_control).
             Args:
-                plugin_name (str): The name of the plugin to execute. Must be obtained from get_scene_list().
-                scene_name (str): The name of the scene to control. Must be obtained from get_scene_list().
+                plugin_name (str): The name of the plugin to execute. Must be obtained from get_device_and_scene_list().
+                scene_name (str): The name of the scene to control. Must be obtained from get_device_and_scene_list().
             Returns:
                 str: A message indicating the action performed.
             """
@@ -325,7 +333,7 @@ class VoiceControl(VoiceRecognizer):
             """
             Control custom devices (differs from plugin device control).
             Args:
-                device_name (str): The name of the device to control. Must be obtained from get_custom_device_list().
+                device_name (str): The name of the device to control. Must be obtained from get_device_and_scene_list().
                 action (str): The action to perform ("turnOn" or "turnOff").
             Returns:
                 str: A message indicating the action performed.
@@ -340,7 +348,7 @@ class VoiceControl(VoiceRecognizer):
             """
             Control custom scenes based on the provided text.
             Args:
-                scene_name (str): The name of the scene to control. Must be obtained from get_custom_scene_list().
+                scene_name (str): The name of the scene to control. Must be obtained from get_device_and_scene_list().
             Returns:
                 str: A message indicating the action performed.
             """
@@ -378,13 +386,17 @@ class VoiceControl(VoiceRecognizer):
                 return response
 
             async def mcp_generate_content(text):
-                mcp_client = fastmcp.Client(self.mcp_servers)
-                async with mcp_client:
-                    await mcp_client.ping()
-                    tools = await mcp_client.list_tools()
-                    tools = [*plugin_tools, mcp_client.session]
-                    response = await generate_content(text, tools)
-                    return response
+                try:
+                    mcp_client = fastmcp.Client(self.mcp_servers)
+                    async with mcp_client:
+                        await mcp_client.ping()
+                        mcp_tools = await mcp_client.list_tools()
+                        tools = [*plugin_tools, mcp_client.session]
+                        response = await generate_content(text, tools)
+                except Exception as e:
+                    print(e)
+                    response = await generate_content(text, [*plugin_tools])
+                return response
             if self.mcp_servers:
                 genai_response = asyncio.run(mcp_generate_content(text))
             else:
