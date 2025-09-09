@@ -135,8 +135,12 @@ switchbot = Switchbot()
 class SwitchbotPlugin(BasePlugin):
     name = "SwitchBot"
     description = "SwitchBotAPIを使用してデバイスを操作する"
-    keywords = [i["deviceName"] for i in switchbot.devices["body"]["infraredRemoteList"]
-                ]+[i["sceneName"] for i in switchbot.scenes["body"]]+["スイッチボット", "リスト更新"]
+    devices = [i["deviceName"]
+               for i in switchbot.devices["body"]["infraredRemoteList"]]
+    scenes = [i["sceneName"] for i in switchbot.scenes["body"]]
+    keywords = ["スイッチボット", "リスト更新"]
+    keywords.extend(devices)
+    keywords.extend(scenes)
     required_config = ["switchbot_token", "switchbot_secret"]
 
     def execute(self, command):

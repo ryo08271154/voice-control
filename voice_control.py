@@ -205,6 +205,7 @@ class VoiceControl(VoiceRecognizer):
     def ask_gemini(self, text, entities):
         def get_plugin_list() -> list:
             """
+            Return a list of available plugin commands.
             These plugins(features) have not been retrieved. Get a list of plugins(features) that have not been retrieved. Required for plugin execution.
             Returns:
                 list[dict[str, object]]: A list of plugin dictionaries.
@@ -243,8 +244,121 @@ class VoiceControl(VoiceRecognizer):
                         return "The plugin did not respond. Please change the prompt and try again."
             return "Plugin not found"
 
-        plugin_tools = [get_plugin_list, execute_plugin,
-                        self.get_routine_list, self.execute_routine]
+        def get_device_and_scene_list() -> dict:
+            """
+            Get the list of devices and scenes.
+
+            Returns:
+                dict: A dictionary with two keys:
+                    - devices (list[dict]):
+                        Contains:
+                            - custom_devices (list[str]): Names of custom devices.
+                            - plugin_name (str): The name of the plugin.
+                            - devices (list[str]): Names of devices associated with the plugin.
+                    - scenes (list[dict]):
+                        Contains:
+                            - custom_scenes (list[str]): Names of custom scenes.
+                            - plugin_name (str): The name of the plugin.
+                            - scenes (list[str]): Names of scenes associated with the plugin.
+            """
+            devices = []
+            plugin_devices = []
+            scenes = []
+            plugin_scenes = []
+            print("デバイスとシーン一覧を取得しました")
+            devices.append({"custom_devices": self.custom_devices_name})
+            scenes.append({"custom_scenes": self.control.custom_scenes_name})
+            for plugin in self.plugins:
+                if plugin.devices:
+                    plugin_devices.append(
+                        {"plugin_name": plugin.name, "devices": plugin.devices})
+                if plugin.scenes:
+                    plugin_scenes.append(
+                        {"plugin_name": plugin.name, "scenes": plugin.scenes})
+            devices.extend(plugin_devices)
+            scenes.extend(plugin_scenes)
+            return {"devices": devices, "scenes": scenes}
+
+        def plugin_device_control(plugin_name: str, device_name: str, action: str) -> str:
+            """
+            Control plugin devices (differs from custom_device_control).
+
+            Args:
+                plugin_name (str): The name of the plugin to execute. Must be obtained from get_device_list().
+                device_name (str): The name of the device to control. Must be obtained from get_device_list().
+                action (str): The action to perform ("turnOn" or "turnOff").
+            Returns:
+                str: A message indicating the action performed.
+            """
+            print(f"{device_name}を{action}します")
+            for plugin in self.plugins:
+                if plugin.name == plugin_name:
+                    command = plugin.device_control(device_name, action)
+                    if command.reply_text != "":
+                        return command.reply_text
+                    else:
+                        return "The device could not be controlled. Please check the device name and try again."
+            else:
+                return "Plugin not found"
+
+        def plugin_scene_control(plugin_name: str, scene_name: str):
+            """
+            Control plugin scenes (differs from custom_scene_control).
+            Args:
+                plugin_name (str): The name of the plugin to execute. Must be obtained from get_scene_list().
+                scene_name (str): The name of the scene to control. Must be obtained from get_scene_list().
+            Returns:
+                str: A message indicating the action performed.
+            """
+            print(f"{scene_name}を実行します")
+            for plugin in self.plugins:
+                if plugin.name == plugin_name:
+                    command = plugin.scene_control(scene_name)
+                    if command.reply_text != "":
+                        return command.reply_text
+                    else:
+                        return "The scene could not be controlled. Please check the scene name and try again."
+            else:
+                return "Plugin not found"
+
+        def custom_device_control(device_name: str, action: str) -> str:
+            """
+            Control custom devices (differs from plugin device control).
+            Args:
+                device_name (str): The name of the device to control. Must be obtained from get_custom_device_list().
+                action (str): The action to perform ("turnOn" or "turnOff").
+            Returns:
+                str: A message indicating the action performed.
+            """
+            print(f"{device_name}を{action}します")
+            message = self.control.custom_device_control(device_name, action)
+            if message == "":
+                message = "The device could not be controlled. Please check the device name and try again."
+            return message
+
+        def custom_scene_control(scene_name: str) -> str:
+            """
+            Control custom scenes based on the provided text.
+            Args:
+                scene_name (str): The name of the scene to control. Must be obtained from get_custom_scene_list().
+            Returns:
+                str: A message indicating the action performed.
+            """
+            message = self.control.custom_scene_control(scene_name)
+            if message == "":
+                message = "The scene could not be controlled. Please check the scene name and try again."
+            return message
+
+        def get_current_time() -> str:
+            """
+            Returns the current date and time.
+            Returns:
+                str: The current date and time in "YYYY/MM/DD DayOfWeek HH:MM:SS" format.
+            """
+            print("現在時刻を取得しました")
+            return datetime.datetime.now().strftime("%Y/%m/%d %a %H:%M:%S")
+        plugin_tools = [get_plugin_list, execute_plugin, get_device_and_scene_list, plugin_device_control, plugin_scene_control,
+                        custom_device_control, custom_scene_control, self.get_routine_list, self.execute_routine, get_current_time]
         print("AIが回答します")
         for name in entities:
             for e in entities[name]:
@@ -352,6 +466,8 @@ class Control:
     def __init__(self, customdevices, customscenes):
         self.custom_devices = customdevices
         self.custom_scenes = customscenes
+        self.custom_scenes_name = [i["sceneName"]
+                                   for i in customscenes["sceneList"]]
 
     def custom_device_control(self, text, action):
         reply = ""
