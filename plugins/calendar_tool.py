@@ -11,6 +11,7 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
+from google.auth.exceptions import RefreshError
 
 
 class GAuth:
@@ -26,8 +27,14 @@ class GAuth:
 
         if not creds or not creds.valid:
             if creds and creds.expired and creds.refresh_token:
-                creds.refresh(Request())
-            else:
+                try:
+                    creds.refresh(Request())
+                except RefreshError:
+                    creds = None
+                except:
+                    creds = None
+                    print("認証に失敗しました")
+            if not creds:
                 flow = InstalledAppFlow.from_client_secrets_file(
                     self.credentials, scopes
                 )
