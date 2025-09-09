@@ -93,6 +93,8 @@ class BasePlugin(NotificationManager):
     version: str = "v1.0.0"
     is_plugin_mode = False
     keywords: list = []
+    devices: list = []
+    scenes: list = []
     required_config: list = []
     config_dir: str = os.path.join(dir_name, "config")
 
@@ -106,6 +108,17 @@ class BasePlugin(NotificationManager):
         return any(keyword in text for keyword in self.keywords)
 
     def execute(self, command: VoiceCommand) -> VoiceCommand:
+        return command
+
+    def device_control(self, device_name: str, action: str) -> VoiceCommand:
+        action_text = action_text = "オン" if action == "turnOn" else "オフ" if action == "turnOff" else ""
+        command = self.execute(VoiceCommand(
+            f"{device_name} {action_text}", action_type="device_control"))
+        return command
+
+    def scene_control(self, scene_name: str) -> VoiceCommand:
+        command = self.execute(VoiceCommand(
+            f"{scene_name} 実行", action_type="scene_control"))
         return command
 
     def get_plugin_mode(self) -> bool:

@@ -35,6 +35,7 @@ class HomeAssistantPlugin(BasePlugin):
         devices = self.get_devices()
         for device in devices:
             self.keywords.append(device["device_name"])
+            self.devices.append(device["device_name"])
 
     def can_handle(self, text):
         if not self.keywords:
