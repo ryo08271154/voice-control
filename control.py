@@ -298,20 +298,51 @@ def main(page: flet.Page):
         devices = []
         for device in voice.custom_devices_name:
             devices.append({"name": device, "icon": flet.Icons.DEVICES})
-        from plugins.switchbot import switchbot
-        for i in switchbot.devices["body"]["infraredRemoteList"]:
-            device_name = i["deviceName"]
-            icon = flet.Icons.DEVICE_UNKNOWN
-            if "ライト" in device_name or "電気" in device_name:
-                icon = flet.Icons.LIGHTBULB
-            elif "テレビ" in device_name:
-                icon = flet.Icons.TV
-            elif "エアコン" in device_name:
-                icon = flet.Icons.THERMOSTAT
-            devices.append({"name": device_name, "icon": icon})
-        for i in switchbot.scenes["body"]:
-            devices.append(
-                {"name": i["sceneName"], "icon": flet.Icons.DEVICES_OTHER})
+        for plugin in voice.plugins:
+            for device in plugin.devices:
+                device_name = device
+                icon = flet.Icons.DEVICE_UNKNOWN
+                if "ライト" in device_name or "電気" in device_name:
+                    icon = flet.Icons.LIGHTBULB
+                elif "テレビ" in device_name:
+                    icon = flet.Icons.TV
+                elif "エアコン" in device_name:
+                    icon = flet.Icons.THERMOSTAT
+                elif "加湿器" in device_name:
+                    icon = flet.Icons.WATER_DROP
+                elif "除湿器" in device_name:
+                    icon = flet.Icons.DEW_POINT
+                elif "空気清浄機" in device_name:
+                    icon = flet.Icons.AIR
+                elif "カーテン" in device_name:
+                    icon = flet.Icons.BLINDS
+                elif "窓" in device_name:
+                    icon = flet.Icons.WINDOW
+                elif "給湯器" in device_name:
+                    icon = flet.Icons.WATER
+                elif "お風呂" in device_name:
+                    icon = flet.Icons.BATHTUB
+                elif "鍵" in device_name:
+                    icon = flet.Icons.LOCK
+                elif "防犯" in device_name:
+                    icon = flet.Icons.SECURITY
+                elif "カメラ" in device_name:
+                    icon = flet.Icons.CAMERA_ALT
+                elif "スピーカー" in device_name:
+                    icon = flet.Icons.SPEAKER
+                elif "音楽" in device_name:
+                    icon = flet.Icons.MUSIC_NOTE
+                elif "照明" in device_name:
+                    icon = flet.Icons.LIGHTBULB_OUTLINE
+                elif "プラグ" in device_name:
+                    icon = flet.Icons.POWER
+                elif "コンセント" in device_name:
+                    icon = flet.Icons.POWER
+                devices.append({"name": device_name, "icon": icon})
+        for plugin in voice.plugins:
+            for scene in plugin.scenes:
+                devices.append(
+                    {"name": scene, "icon": flet.Icons.DEVICES_OTHER})
         grid = flet.GridView(
             expand=True,
             runs_count=2,
