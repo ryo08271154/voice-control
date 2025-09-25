@@ -121,7 +121,7 @@ class VoiceControl(VoiceRecognizer):
         self.url = config["server"]["url"]
         self.reply = ""
         self.text = ""
-        self.plugin_manager = PluginManager()
+        self.plugin_manager = PluginManager(self)
         self.plugins = self.plugin_manager.load_plugins()
         self.custom_routines = custom_routines
         self.routine_list = [
