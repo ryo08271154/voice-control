@@ -181,16 +181,18 @@ class VoiceControl(VoiceRecognizer):
             if routine["routineName"] in text:
                 self.execute_routine(routine["routineName"])
                 return
-        if len(text) < 13:
-            for plugin in self.plugins:
-                command = VoiceCommand(text)
-                if plugin.can_handle(text) or plugin.is_plugin_mode:
-                    try:
+        for plugin in self.plugins:
+            command = VoiceCommand(text)
+            if plugin.can_handle(text) or plugin.is_plugin_mode:
+                try:
+                    if len(text) < 13 or plugin.is_plugin_mode:
                         command = plugin.execute(command)
-                        if command.reply_text != "":
-                            commands.append(command)
-                    except Exception as e:
-                        print(f"プラグイン {plugin.name} の実行中にエラーが発生しました: {e}")
+                    if command.reply_text != "":
+                        commands.append(command)
+                        if plugin.is_plugin_mode:
+                            break
+                except Exception as e:
+                    print(f"プラグイン {plugin.name} の実行中にエラーが発生しました: {e}")
         if not commands:
             for i in self.words:
                 if i in text:
