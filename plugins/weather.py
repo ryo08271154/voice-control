@@ -14,8 +14,8 @@ class WeatherPlugin(BasePlugin):
     keywords = ["天気", "予報", "晴れ", "雨", "くもり", "雪"]
     required_config = ["openweathermap_apikey", "latitude", "longitude"]
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, voice_control=None):
+        super().__init__(voice_control)
         threading.Thread(target=self.run_pending_jobs, daemon=True).start()
         schedule.every().day.at("08:00").do(self.weather_notification)
 

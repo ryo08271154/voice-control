@@ -1,3 +1,4 @@
+from release_checker import ReleaseChecker
 import flet
 import datetime
 import asyncio
@@ -669,4 +670,7 @@ def main(page: flet.Page):
     page.go(page.route)
 
 
+checker = ReleaseChecker()
+if checker.check_update():
+    checker.gui()
 flet.app(target=main)

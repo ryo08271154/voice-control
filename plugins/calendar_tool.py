@@ -90,8 +90,8 @@ class CalendarPlugin(BasePlugin):
     description = "Google Calendar APIを使用して予定を取得する"
     keywords = ["カレンダー", "スケジュール", "予定"]
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, voice_control=None):
+        super().__init__(voice_control)
         self.gcalendar = Calendar(self.config_dir)
         threading.Thread(target=self.run_pending_jobs, daemon=True).start()
         self.set_today_events()
@@ -181,8 +181,8 @@ class TasksPlugin(BasePlugin):
     description = "Google Tasks APIを使用してタスクを取得する"
     keywords = ["タスク", "作業", "宿題", "課題"]
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, voice_control=None):
+        super().__init__(voice_control)
         self.tasks = Tasks(self.config_dir)
 
     def execute(self, command):

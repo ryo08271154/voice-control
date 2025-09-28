@@ -68,14 +68,14 @@ if __name__ == '__main__':
         config = {}
         setup()
     speech_engine = input(
-        "VOSKを利用する場合はvoskと入力してください Whisperを利用する場合はwhisperと入力してください:") or "vosk"
+        "VOSKを利用する場合は0と入力してください Whisperを利用する場合は1と入力してください:") or "0"
     speech_engine_json = {}
-    if speech_engine == "vosk":
+    if speech_engine == "0":
         print("音声認識にVOSKを使用しているため、VOSKのモデルをダウンロードしておく必要があります。")
         vosk_model_path = input("VOSKのモデルパスを入力してください") or config.get(
             "vosk", {}).get("model_path", "")
         speech_engine_json = {"vosk": {"model_path": vosk_model_path}}
-    elif speech_engine == "whisper":
+    elif speech_engine == "1":
         whisper_model_size_or_path = input("Whisperのモデルサイズまたはパスを入力してください:") or config.get(
             "whisper", {}).get("model_size_or_path", "")
         whisper_device = config.get("whisper", {}).get("device", "cpu")

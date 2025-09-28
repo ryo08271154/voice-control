@@ -18,7 +18,7 @@
 1. リポジトリをクローンします。
 
    ```bash
-   git clone https://github.com/ryo08271154/voice_control.git
+   git clone --recursive https://github.com/ryo08271154/voice_control.git
    cd voice_control
    ```
 
