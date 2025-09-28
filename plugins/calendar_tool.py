@@ -184,7 +184,7 @@ class TasksPlugin(BasePlugin):
     def __init__(self, voice_control=None):
         super().__init__(voice_control)
         self.tasks = Tasks(self.config_dir)
-
+        
     def execute(self, command):
         text = command.user_input_text
         todos = self.tasks.get_todos()

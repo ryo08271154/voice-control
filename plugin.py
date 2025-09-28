@@ -108,7 +108,6 @@ class BasePlugin(NotificationManager):
             return
         self.genai_client = genai.Client(
             api_key=self.voice_control.config["genai"]["apikey"])
-
     def get_keywords(self) -> list:
         return self.keywords
 

@@ -669,7 +669,6 @@ def main(page: flet.Page):
     page.run_task(update_lyrics)  # 歌詞更新タスクを開始
     page.go(page.route)
 
-
 checker = ReleaseChecker()
 if checker.check_update():
     checker.gui()
