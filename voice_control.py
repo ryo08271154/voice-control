@@ -527,4 +527,8 @@ def run():
 
 
 if __name__ == "__main__":
+    from release_checker import ReleaseChecker
+    checker = ReleaseChecker()
+    if checker.check_update():
+        checker.cui()
     run()
