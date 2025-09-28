@@ -1,16 +1,19 @@
+from google import genai
 import importlib
 import inspect
 import os
 import json
+import asyncio
 from commands import VoiceCommand
 import time
 dir_name = os.path.dirname(os.path.abspath(__file__))
 
 
 class PluginManager:
-    def __init__(self, plugin_dir: str = "plugins"):
+    def __init__(self, voice_control=None, plugin_dir: str = "plugins"):
         self.plugin_dir = plugin_dir
         self.plugins = []
+        self.voice_control = voice_control
 
     def get_plugins(self):
         plugins = []
@@ -39,7 +42,7 @@ class PluginManager:
                     module = importlib.import_module(module_name)
                     for name, cls in inspect.getmembers(module, inspect.isclass):
                         if issubclass(cls, BasePlugin) and cls != BasePlugin:
-                            obj = cls()
+                            obj = cls(self.voice_control)
                             if obj.name in enabled_plugins:
                                 plugins.append(obj)
             except OSError as e:
@@ -98,6 +101,13 @@ class BasePlugin(NotificationManager):
     required_config: list = []
     config_dir: str = os.path.join(dir_name, "config")
 
+    def __init__(self, voice_control=None):
+        super().__init__()
+        self.voice_control = voice_control
+        if not self.voice_control:
+            return
+        self.genai_client = genai.Client(
+            api_key=self.voice_control.config["genai"]["apikey"])
     def get_keywords(self) -> list:
         return self.keywords
 
@@ -109,6 +119,30 @@ class BasePlugin(NotificationManager):
 
     def execute(self, command: VoiceCommand) -> VoiceCommand:
         return command
+
+    def command(self, text: str, action_type: str = "plugin_command") -> VoiceCommand:
+        command = self.voice_control.command(
+            VoiceCommand(text, action_type=action_type))
+        return command
+
+    def ask_gemini(self, contents: str, config: genai.types.GenerateContentConfig = genai.types.GenerateContentConfig(), *args, **kwargs) -> genai.types.GenerateContentResponse:
+        async def generate_content(contents: str, config: genai.types.GenerateContentConfig, *args, **kwargs) -> genai.types.GenerateContentResponse:
+            # ユーザーのシステム命令を設定
+            if config.system_instruction is None:
+                config.system_instruction = ""
+            user_system_instruction = self.voice_control.config["genai"]["system_instruction"]
+            config.system_instruction += user_system_instruction
+            response = await self.genai_client.aio.models.generate_content(
+                model=self.voice_control.config["genai"]["model_name"],
+                contents=contents,
+                config=config,
+                *args,
+                **kwargs
+            )
+            return response
+        response = asyncio.run(generate_content(
+            contents, config, *args, **kwargs))
+        return response
 
     def device_control(self, device_name: str, action: str) -> VoiceCommand:
         action_text = action_text = "オン" if action == "turnOn" else "オフ" if action == "turnOff" else ""

@@ -7,8 +7,8 @@ class HomeAssistantPlugin(BasePlugin):
     description = "HomeAssistant Conversation APIを使用して、スマートホームデバイスを操作します。"
     required_config = ["token", "url", "agent_id"]
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, voice_control=None):
+        super().__init__(voice_control)
         config = self.get_config()
         token = config.get("token")
         self.url = config.get("url")

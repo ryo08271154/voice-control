@@ -1,3 +1,4 @@
+from release_checker import ReleaseChecker
 import flet
 import datetime
 import asyncio
@@ -668,5 +669,7 @@ def main(page: flet.Page):
     page.run_task(update_lyrics)  # 歌詞更新タスクを開始
     page.go(page.route)
 
-
+checker = ReleaseChecker()
+if checker.check_update():
+    checker.gui()
 flet.app(target=main)
