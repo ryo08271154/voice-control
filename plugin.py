@@ -90,6 +90,31 @@ class NotificationManager:
             plugin_name, message, message_type))
 
 
+class Device:
+    def __init__(self, device_name: str, device_type: str = "unknown", room: str = "unknown"):
+        self.device_name = device_name
+        self.device_type = device_type
+        self.room = room
+
+    def __str__(self):
+        return self.device_name
+
+    def __repr__(self):
+        return self.device_name
+
+
+class Scene:
+    def __init__(self, scene_name: str, room: str = "unknown"):
+        self.scene_name = scene_name
+        self.room = room
+
+    def __str__(self):
+        return self.scene_name
+
+    def __repr__(self):
+        return self.scene_name
+
+
 class BasePlugin(NotificationManager):
     name: str = ""
     description: str = ""
@@ -103,11 +128,14 @@ class BasePlugin(NotificationManager):
 
     def __init__(self, voice_control=None):
         super().__init__()
+        self.keywords.extend([d.device_name for d in self.devices])
+        self.keywords.extend([s.scene_name for s in self.scenes])
         self.voice_control = voice_control
         if not self.voice_control:
             return
         self.genai_client = genai.Client(
             api_key=self.voice_control.config["genai"]["apikey"])
+
     def get_keywords(self) -> list:
         return self.keywords
 
