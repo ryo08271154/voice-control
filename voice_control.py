@@ -264,12 +264,12 @@ class VoiceControl(VoiceRecognizer):
                         Contains:
                             - custom_devices (list[str]): Names of custom devices.
                             - plugin_name (str): The name of the plugin.
-                            - devices (list[str]): Names of devices associated with the plugin.
+                            - devices (list[dict]): Names of devices associated with the plugin.
                     - scenes (list[dict]):
                         Contains:
                             - custom_scenes (list[str]): Names of custom scenes.
                             - plugin_name (str): The name of the plugin.
-                            - scenes (list[str]): Names of scenes associated with the plugin.
+                            - scenes (list[dict]): Names of scenes associated with the plugin.
             """
             devices = []
             plugin_devices = []
@@ -281,10 +281,10 @@ class VoiceControl(VoiceRecognizer):
             for plugin in self.plugins:
                 if plugin.devices:
                     plugin_devices.append(
-                        {"plugin_name": plugin.name, "devices": plugin.devices})
+                        {"plugin_name": plugin.name, "devices": [d.__dict__ for d in plugin.devices]})
                 if plugin.scenes:
                     plugin_scenes.append(
-                        {"plugin_name": plugin.name, "scenes": plugin.scenes})
+                        {"plugin_name": plugin.name, "scenes": [s.__dict__ for s in plugin.scenes]})
             devices.extend(plugin_devices)
             scenes.extend(plugin_scenes)
             return {"devices": devices, "scenes": scenes}

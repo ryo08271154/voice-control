@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from plugin import BasePlugin
+from plugin import BasePlugin, Device, Scene
 import json
 import time
 import hashlib
@@ -137,12 +137,11 @@ switchbot = Switchbot()
 class SwitchbotPlugin(BasePlugin):
     name = "SwitchBot"
     description = "SwitchBotAPIを使用してデバイスを操作する"
-    devices = [i["deviceName"]
+    devices = [Device(device_name=i["deviceName"], device_type=i["remoteType"], room=i.get("roomName", "unknown"))
                for i in switchbot.devices["body"]["infraredRemoteList"]]
-    scenes = [i["sceneName"] for i in switchbot.scenes["body"]]
+    scenes = [Scene(scene_name=i["sceneName"])
+              for i in switchbot.scenes["body"]]
     keywords = ["スイッチボット", "リスト更新"]
-    keywords.extend(devices)
-    keywords.extend(scenes)
     required_config = ["switchbot_token", "switchbot_secret"]
 
     _MODES = {
