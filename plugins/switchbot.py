@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from plugin import BasePlugin
+from plugin import BasePlugin, Device, Scene
 import json
 import time
 import hashlib
@@ -8,6 +8,8 @@ import base64
 import uuid
 import requests
 import os
+import datetime
+import re
 dir_name = os.path.dirname(__file__)
 dir_name = os.path.abspath(os.path.join(dir_name, os.pardir))
 
@@ -100,7 +102,7 @@ class Switchbot:
         command = {}
         command["commandType"] = c_type
         command["command"] = onoff
-        command["commandparameter"] = parameter
+        command["parameter"] = parameter
         apiHeader = self.header()
         for i in self.devices["body"]["infraredRemoteList"]:
             if i["deviceName"] == name:
@@ -135,13 +137,71 @@ switchbot = Switchbot()
 class SwitchbotPlugin(BasePlugin):
     name = "SwitchBot"
     description = "SwitchBotAPIを使用してデバイスを操作する"
-    devices = [i["deviceName"]
+    devices = [Device(device_name=i["deviceName"], device_type=i["remoteType"], room=i.get("roomName", "unknown"))
                for i in switchbot.devices["body"]["infraredRemoteList"]]
-    scenes = [i["sceneName"] for i in switchbot.scenes["body"]]
+    scenes = [Scene(scene_name=i["sceneName"])
+              for i in switchbot.scenes["body"]]
     keywords = ["スイッチボット", "リスト更新"]
-    keywords.extend(devices)
-    keywords.extend(scenes)
     required_config = ["switchbot_token", "switchbot_secret"]
+
+    _MODES = {
+        "自動": 1,
+        "冷房": 2,
+        "除湿": 3,
+        "送風": 4,
+        "暖房": 5,
+    }
+    _FAN_SPEEDS = {
+        "自動": 1,
+        "弱": 2,
+        "中": 3,
+        "強": 4,
+    }
+
+    def air_conditioner_control(self, device_name, text):
+        if "オン" in text or "つけ" in text:
+            return self.air_conditioner_commands(device_name, power_state="on")
+        elif "オフ" in text or "消し" in text or "決して" in text:
+            return self.air_conditioner_commands(device_name, power_state="off")
+        temperature = self.air_conditioner_status["temperature"]
+        mode = None
+        fan_speed = None
+        temperature_match = re.search(r"(\d+)", text)
+        if temperature_match:
+            temperature_match = int(temperature_match.group(1))
+            if "上" in text or "高" in text:
+                temperature += temperature_match
+            elif "下" in text or "低" in text:
+                temperature -= temperature_match
+            temperature = temperature_match
+        for m in self._MODES:
+            if m in text:
+                mode = m
+                break
+        for f in self._FAN_SPEEDS:
+            if f in text:
+                fan_speed = f
+                break
+        return self.air_conditioner_commands(device_name=device_name, temperature=temperature, mode=mode, fan_speed=fan_speed)
+
+    def air_conditioner_commands(self, device_name, temperature=None, mode=None, fan_speed=None, power_state=None):
+        if temperature:
+            self.air_conditioner_status["temperature"] = temperature
+        if mode:
+            self.air_conditioner_status["mode"] = self._MODES[mode]
+        if fan_speed:
+            self.air_conditioner_status["fan_speed"] = self._FAN_SPEEDS[fan_speed]
+        if power_state:
+            self.air_conditioner_status["power_state"] = power_state
+        command = f"{self.air_conditioner_status['temperature']},{self.air_conditioner_status['mode']},{self.air_conditioner_status['fan_speed']},{self.air_conditioner_status['power_state']}"
+        switchbot.commands(device_name, "setAll", "command", command)
+        if power_state == "off":
+            return f"{device_name}をオフにします"
+        return f"{device_name}を{self.air_conditioner_status['temperature']}度、{list(self._MODES.keys())[list(self._MODES.values()).index(self.air_conditioner_status['mode'])]}、風量{list(self._FAN_SPEEDS.keys())[list(self._FAN_SPEEDS.values()).index(self.air_conditioner_status['fan_speed'])]}に設定しました"
+    air_conditioner_status = {"temperature": 26,
+                              "mode": 2 if datetime.date.today().month >= 5 and datetime.date.today().month <= 10 else 5,
+                              "fan_speed": 1,
+                              "power_state": "on"}
 
     def execute(self, command):
         text = command.user_input_text
@@ -159,6 +219,10 @@ class SwitchbotPlugin(BasePlugin):
                              ["infraredRemoteList"]]+[i["sceneName"] for i in switchbot.scenes["body"]]
         for i in switchbot.devices["body"]["infraredRemoteList"]:
             if i["deviceName"] in text:
+                if i["remoteType"] == "Air Conditioner":
+                    command.reply_text = self.air_conditioner_control(
+                        i["deviceName"], text)
+                    continue
                 if "オン" in text or "つけ" in text:
                     switchbot.commands(i["deviceName"], "turnOn")
                     command.reply_text += f'{i["deviceName"]}をオンにします'
