@@ -301,7 +301,7 @@ def main(page: flet.Page):
             devices.append({"name": device, "icon": flet.Icons.DEVICES})
         for plugin in voice.plugins:
             for device in plugin.devices:
-                device_name = device
+                device_name = device.device_name
                 icon = flet.Icons.DEVICE_UNKNOWN
                 if "ライト" in device_name or "電気" in device_name:
                     icon = flet.Icons.LIGHTBULB
@@ -668,6 +668,7 @@ def main(page: flet.Page):
     page.run_task(playback_progress_update)
     page.run_task(update_lyrics)  # 歌詞更新タスクを開始
     page.go(page.route)
+
 
 checker = ReleaseChecker()
 if checker.check_update():
