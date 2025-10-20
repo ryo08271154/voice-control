@@ -199,13 +199,13 @@ class BasePlugin(NotificationManager):
     description: str = ""
     version: str = "v1.0.0"
     sample_commands: list = []
-    is_plugin_mode = False
     keywords: list = []
     required_config: list = []
     config_dir: str = os.path.join(dir_name, "config")
 
     def __init__(self, voice_control=None):
         super().__init__()
+        self.is_plugin_mode = False
         self.devices: list = []
         self.scenes: list = []
         self.voice_control = voice_control
@@ -226,10 +226,14 @@ class BasePlugin(NotificationManager):
     def execute(self, command: VoiceCommand) -> VoiceCommand:
         return command
 
-    def command(self, text: str, action_type: str = "plugin_command") -> VoiceCommand:
-        command = self.voice_control.command(
-            VoiceCommand(text, action_type=action_type))
-        return command
+    def command(self, text: str) -> list:
+        plugin_mode = self.get_plugin_mode()
+        if self.is_plugin_mode:
+            self.set_plugin_mode(False)
+        commands = self.voice_control.command(text)
+        if plugin_mode:
+            self.set_plugin_mode(True)
+        return commands
 
     def ask_gemini(self, contents: str, config: genai.types.GenerateContentConfig = genai.types.GenerateContentConfig(), *args, **kwargs) -> genai.types.GenerateContentResponse:
         async def generate_content(contents: str, config: genai.types.GenerateContentConfig, *args, **kwargs) -> genai.types.GenerateContentResponse:
