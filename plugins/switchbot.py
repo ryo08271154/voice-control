@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from plugin import BasePlugin, Device, Scene
+from plugin import BasePlugin
 import json
 import time
 import hashlib
@@ -137,11 +137,8 @@ switchbot = Switchbot()
 class SwitchbotPlugin(BasePlugin):
     name = "SwitchBot"
     description = "SwitchBotAPIを使用してデバイスを操作する"
-    devices = [Device(device_name=i["deviceName"], device_type=i["remoteType"], room=i.get("roomName", "unknown"))
-               for i in switchbot.devices["body"]["infraredRemoteList"]]
-    scenes = [Scene(scene_name=i["sceneName"])
-              for i in switchbot.scenes["body"]]
-    keywords = ["スイッチボット", "リスト更新"]
+    keywords = ["スイッチボット", "リスト更新", "度", "モード", "風量",
+                "冷房", "除湿", "送風", "暖房", "自動", "弱", "中", "強"]
     required_config = ["switchbot_token", "switchbot_secret"]
 
     _MODES = {
@@ -158,11 +155,104 @@ class SwitchbotPlugin(BasePlugin):
         "強": 4,
     }
 
+    def __init__(self, voice_control=None):
+        super().__init__(voice_control)
+        config = self.get_config()
+        switchbot.config = config
+        switchbot_token = config.get("switchbot_token")
+        switchbot_secret = config.get("switchbot_secret")
+        if not switchbot_token or not switchbot_secret:
+            raise ValueError("SwitchBotのAPIキーが設定されていません。")
+        for device in switchbot.devices["body"]["infraredRemoteList"]:
+            if device["remoteType"] == "Air Conditioner":
+                self.add_device(
+                    device_name=device["deviceName"],
+                    device_type=device["remoteType"],
+                    room=device.get("roomName", "unknown"),
+                    on_func=lambda d: switchbot.commands(d.device_name, "on"),
+                    off_func=lambda d: switchbot.commands(
+                        d.device_name, "off"),
+                    set_count_func=lambda d, count: self.air_conditioner_commands(
+                        d.device_name, temperature=count),
+                    up_func=lambda d, amount: self.air_conditioner_commands(
+                        d.device_name, temperature=self.air_conditioner_status["temperature"]+amount),
+                    down_func=lambda d, amount: self.air_conditioner_commands(
+                        d.device_name, temperature=self.air_conditioner_status["temperature"]-amount),
+                )
+            elif "TV" in device["remoteType"] or "Streamer" in device["remoteType"] or "Set Top Box" in device["remoteType"]:
+                self.add_device(
+                    device_name=device["deviceName"],
+                    device_type=device["remoteType"],
+                    room=device.get("roomName", "unknown"),
+                    on_func=lambda d: switchbot.commands(
+                        d.device_name, "turnOn"),
+                    off_func=lambda d: switchbot.commands(
+                        d.device_name, "turnOff"),
+                    play_func=lambda d: switchbot.commands(
+                        d.device_name, "play"),
+                    pause_func=lambda d: switchbot.commands(
+                        d.device_name, "pause"),
+                    stop_func=lambda d: switchbot.commands(
+                        d.device_name, "stop"),
+                    next_func=lambda d: switchbot.commands(
+                        d.device_name, "next"),
+                    previous_func=lambda d: switchbot.commands(
+                        d.device_name, "previous"),
+                    up_func=lambda d, amount: switchbot.commands(
+                        d.device_name, "volumeAdd"),
+                    down_func=lambda d, amount: switchbot.commands(
+                        d.device_name, "volumeSub"),
+                    set_count_func=lambda d, count: switchbot.commands(
+                        d.device_name, "SetChannel", parameter=count),
+                )
+            elif "DVD" in device["remoteType"] or "Speaker" in device["remoteType"]:
+                self.add_device(
+                    device_name=device["deviceName"],
+                    device_type=device["remoteType"],
+                    room=device.get("roomName", "unknown"),
+                    on_func=lambda d: switchbot.commands(
+                        d.device_name, "turnOn"),
+                    off_func=lambda d: switchbot.commands(
+                        d.device_name, "turnOff"),
+                    play_func=lambda d: switchbot.commands(
+                        d.device_name, "Play"),
+                    pause_func=lambda d: switchbot.commands(
+                        d.device_name, "Pause"),
+                    stop_func=lambda d: switchbot.commands(
+                        d.device_name, "Stop"),
+                    next_func=lambda d: switchbot.commands(
+                        d.device_name, "Next"),
+                    previous_func=lambda d: switchbot.commands(
+                        d.device_name, "Previous"),
+                    up_func=lambda d, amount: switchbot.commands(
+                        d.device_name, "volumeAdd"),
+                    down_func=lambda d, amount: switchbot.commands(
+                        d.device_name, "volumeSub"),
+                )
+            elif "Light" in device["remoteType"]:
+                self.add_device(
+                    device_name=device["deviceName"],
+                    device_type=device["remoteType"],
+                    room=device.get("roomName", "unknown"),
+                    on_func=lambda d: switchbot.commands(
+                        d.device_name, "turnOn"),
+                    off_func=lambda d: switchbot.commands(
+                        d.device_name, "turnOff"),
+                    up_func=lambda d, amount: switchbot.commands(
+                        d.device_name, "brightnessUp"),
+                    down_func=lambda d, amount: switchbot.commands(
+                        d.device_name, "brightnessDown"),
+                )
+            else:
+                self.add_device(device_name=device["deviceName"], device_type=device["remoteType"], room=device.get("roomName", "unknown"),
+                                on_func=lambda d: switchbot.commands(
+                                    d.device_name, "turnOn"),
+                                off_func=lambda d: switchbot.commands(d.device_name, "turnOff"))
+        for scene in switchbot.scenes["body"]:
+            self.add_scene(scene_name=scene["sceneName"], room=scene.get("roomName", "unknown"),
+                           excute_func=lambda s: switchbot.scene(s.scene_name))
+
     def air_conditioner_control(self, device_name, text):
-        if "オン" in text or "つけ" in text:
-            return self.air_conditioner_commands(device_name, power_state="on")
-        elif "オフ" in text or "消し" in text or "決して" in text:
-            return self.air_conditioner_commands(device_name, power_state="off")
         temperature = self.air_conditioner_status["temperature"]
         mode = None
         fan_speed = None
@@ -182,6 +272,8 @@ class SwitchbotPlugin(BasePlugin):
             if f in text:
                 fan_speed = f
                 break
+        if mode is None and fan_speed is None and not temperature_match:
+            return ""
         return self.air_conditioner_commands(device_name=device_name, temperature=temperature, mode=mode, fan_speed=fan_speed)
 
     def air_conditioner_commands(self, device_name, temperature=None, mode=None, fan_speed=None, power_state=None):
@@ -205,14 +297,7 @@ class SwitchbotPlugin(BasePlugin):
 
     def execute(self, command):
         text = command.user_input_text
-        config = self.get_config()
-        switchbot.config = config
-        switchbot_token = config.get("switchbot_token")
-        switchbot_secret = config.get("switchbot_secret")
-        if not switchbot_token or not switchbot_secret:
-            command.reply_text = "SwitchBotのAPIキーが設定されていません。"
-            return command
-        elif "リスト更新" in text:
+        if "リスト更新" in text:
             switchbot.devices = switchbot.get_device_list()
             switchbot.scenes = switchbot.get_scene_list()
             self.keywords = [i["deviceName"] for i in switchbot.devices["body"]
@@ -223,17 +308,4 @@ class SwitchbotPlugin(BasePlugin):
                     command.reply_text = self.air_conditioner_control(
                         i["deviceName"], text)
                     continue
-                if "オン" in text or "つけ" in text:
-                    switchbot.commands(i["deviceName"], "turnOn")
-                    command.reply_text += f'{i["deviceName"]}をオンにします'
-                    command.action_type = "turnOn"
-                elif "オフ" in text or "消し" in text or "決して" in text:
-                    switchbot.commands(i["deviceName"], "turnOff")
-                    command.reply_text += f'{i["deviceName"]}をオフにします'
-                    command.action_type = "turnOff"
-        for i in switchbot.scenes["body"]:
-            if i["sceneName"] in text:
-                switchbot.scene(i["sceneName"])
-                command.reply_text += f'{i["sceneName"]}を実行します'
-                command.action_type = "scene"
         return super().execute(command)
