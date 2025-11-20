@@ -26,6 +26,7 @@ class ChatPlugin(BasePlugin):
         - Access system functions
         - Retrieve informational data (e.g. current time, weather, search, calendar events, etc.)
     - Call explain_step_by_step() to explain a process or topic step-by-step
+    - When using step-by-step(), do not respond with text that is exactly the same as the step_description or step_explanation. Always rephrase it concisely.
     - Call end_step_by_step() to end the step-by-step explanation
     - Respond to the user in a friendly and approachable manner
     - Keep the conversation going by expanding topics or asking questions
@@ -205,7 +206,7 @@ class ChatPlugin(BasePlugin):
             self.is_plugin_mode = True
             self.chat_history = []  # 会話履歴をクリア
             return super().execute(command)
-        if command.user_input_text in ["えーと", "えっと", "えっとー", "えー", "え", "あ", "あー"]:
+        if command.user_input_text in ["えーと", "えっと", "えっとー", "えー", "え", "あ", "あー"] or len(command.user_input_text) <= 3:
             return super().execute(command)
         response = self.send_message(command.user_input_text)
         command.reply_text = response.text if response.text else "応答がありませんでした。"

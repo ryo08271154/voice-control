@@ -177,7 +177,13 @@ class VoiceControl(VoiceRecognizer):
             if scene.scene_name in text:
                 scene.execute()
                 command.reply_text += f"{scene.scene_name}を実行します"
+
         count = int(re.sub(r"\D", "", text)) if re.sub(r"\D", "", text) else 0
+        matching_rooms = [d.room for d in devices if d.device_name in text]
+        if not matching_rooms:
+            matching_rooms = [d.room for d in devices if d.room in text]
+        room = matching_rooms[0] if matching_rooms else None
+
         if "オン" in text or "つけ" in text or "付" in text or "on" in text or "On" in text:
             command.action_type = "turnOn"
         if "オフ" in text or "消" in text or "けし" in text or "決して" in text or "切" in text or "off" in text or "Off" in text:
@@ -205,10 +211,10 @@ class VoiceControl(VoiceRecognizer):
         if command.action_type == "default":
             return command
         for device in devices:
-            if device.device_name in text:
+            if device.device_name in text and device.room == room:
                 actions = {
-                    "turnOn": (device.turn_on, "をオンします"),
-                    "turnOff": (device.turn_off, "をオフします"),
+                    "turnOn": (device.turn_on, "をオンにします"),
+                    "turnOff": (device.turn_off, "をオフにします"),
                     "play": (device.play, "を再生します"),
                     "pause": (device.pause, "を一時停止します"),
                     "stop": (device.stop, "を停止します"),
@@ -602,8 +608,11 @@ def run():
 
 
 if __name__ == "__main__":
-    from release_checker import ReleaseChecker
-    checker = ReleaseChecker()
-    if checker.check_update():
-        checker.cui()
+    try:
+        from release_checker import ReleaseChecker
+        checker = ReleaseChecker()
+        if checker.check_update():
+            checker.cui()
+    except:
+        pass
     run()

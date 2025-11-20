@@ -1141,9 +1141,11 @@ def main(page: ft.Page):
 
 if __name__ == "__main__":
     # アップデートチェック
-    checker = ReleaseChecker()
-    if checker.check_update():
-        checker.gui()
-
+    try:
+        checker = ReleaseChecker()
+        if checker.check_update():
+            checker.gui()
+    except:
+        pass
     # アプリケーション起動
     ft.app(target=main)
