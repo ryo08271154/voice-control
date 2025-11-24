@@ -8,3 +8,5 @@ vosk*
 config/
 *.log
 *.json
+node_modules
+*.vrm
