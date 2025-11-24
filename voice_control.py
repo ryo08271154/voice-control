@@ -171,6 +171,71 @@ class VoiceControl(VoiceRecognizer):
         command.action_type = action
         return command
 
+    def parse_and_control_device(self, command, devices, scenes) -> VoiceCommand:
+        text = command.user_input_text
+        for scene in scenes:
+            if scene.scene_name in text:
+                scene.execute()
+                command.reply_text += f"{scene.scene_name}を実行します"
+
+        count = int(re.sub(r"\D", "", text)) if re.sub(r"\D", "", text) else 0
+        matching_rooms = [d.room for d in devices if d.device_name in text]
+        if not matching_rooms:
+            matching_rooms = [d.room for d in devices if d.room in text]
+        room = matching_rooms[0] if matching_rooms else None
+
+        if "オン" in text or "つけ" in text or "付" in text or "on" in text or "On" in text:
+            command.action_type = "turnOn"
+        if "オフ" in text or "消" in text or "けし" in text or "決して" in text or "切" in text or "off" in text or "Off" in text:
+            command.action_type = "turnOff"
+        if "再生" in text or "play" in text or "Play" in text:
+            command.action_type = "play"
+        if "一時停止" in text or "ポーズ" in text or "止" in text or "pause" in text or "Pause" in text:
+            command.action_type = "pause"
+        if "停止" in text or "ストップ" in text or "終了" in text or "終" in text or "stop" in text or "Stop" in text or "end" in text or "End" in text:
+            command.action_type = "stop"
+        if "次" in text or "スキップ" in text or "next" in text or "Next" in text or "skip" in text or "Skip" in text:
+            command.action_type = "next"
+        if "前" in text or "戻" in text or "もど" in text or "prev" in text or "Prev" in text or "back" in text or "Back" in text:
+            command.action_type = "previous"
+        if "上" in text or "あげ" in text or "大" in text or "高" in text or "up" in text or "Up" in text or "UP" in text or "high" in text or "High" in text or "big" in text or "Big" in text or "increase" in text or "Increase" in text:
+            command.action_type = "up"
+        if "下" in text or "さげ" in text or "小" in text or "低" in text or "down" in text or "Down" in text or "DOWN" in text or "low" in text or "Low" in text or "decrease" in text or "Decrease" in text or "small" in text or "Small" in text or "reduce" in text or "Reduce" in text:
+            command.action_type = "down"
+        if ("速" in text or "スピード" in text or "speed" in text or "Speed" in text) and count > 0:
+            command.action_type = "set_speed"
+        elif ("モード" in text or "mode" in text or "Mode" in text) and count > 0:
+            command.action_type = "set_mode"
+        elif ("設定" in text or "にして" in text or "set" in text or "Set" in text) and count > 0:
+            command.action_type = "set_count"
+        if command.action_type == "default":
+            return command
+        for device in devices:
+            if device.device_name in text and device.room == room:
+                actions = {
+                    "turnOn": (device.turn_on, "をオンにします"),
+                    "turnOff": (device.turn_off, "をオフにします"),
+                    "play": (device.play, "を再生します"),
+                    "pause": (device.pause, "を一時停止します"),
+                    "stop": (device.stop, "を停止します"),
+                    "next": (device.next, "を次にします"),
+                    "previous": (device.previous, "を前にします"),
+                    "up": (lambda: device.up(count), "を上げます"),
+                    "down": (lambda: device.down(count), "を下げます"),
+                    "set_count": (lambda: device.set_count(count), f"{count}に設定します"),
+                    "set_speed": (lambda: device.set_speed(count), f"{count}に設定します"),
+                    "set_mode": (lambda: device.set_mode(count), f"{count}に設定します")
+
+                }
+                func, message = actions[command.action_type]
+                result = func()
+                if result:
+                    if isinstance(result, str):
+                        command.reply_text += result
+                    else:
+                        command.reply_text += f"{device.device_name} {message}"
+        return command
+
     def command(self, text):
         self.reply = ""
         text = text.replace(" ", "")
@@ -183,6 +248,12 @@ class VoiceControl(VoiceRecognizer):
                 return
         for plugin in self.plugins:
             command = VoiceCommand(text)
+            if (plugin.devices or plugin.scenes) and len(text) < 13:
+                command = self.parse_and_control_device(
+                    command, plugin.devices, plugin.scenes)
+                if command.reply_text != "":
+                    commands.append(command)
+                    continue
             if plugin.can_handle(text) or plugin.is_plugin_mode:
                 try:
                     if len(text) < 13 or plugin.is_plugin_mode:
@@ -217,6 +288,7 @@ class VoiceControl(VoiceRecognizer):
                         - keywords (list[str]): Keywords related to the plugin,
                                                 should be included in the prompt
                                                 when using execute_plugin().
+                        - sample_commands (list[str]): Example commands for the plugin.
             """
             plugins = []
             for plugin in self.plugins:
@@ -224,15 +296,15 @@ class VoiceControl(VoiceRecognizer):
                 description = plugin.description
                 keywords = plugin.keywords
                 plugins.append(
-                    {"name": name, "description": description, "keywords": keywords})
+                    {"name": name, "description": description, "keywords": keywords, "sample_commands": plugin.sample_commands})
             print("プラグイン一覧を取得しました")
             return plugins
 
         def execute_plugin(plugin_name: str, prompt: str) -> str:
             """ Execute a plugin(feature) that have not been retrieved using the given prompt.
             Args:
-                plugin_name: The name of the plugin to execute. Must be obtained from get_plugin_list().
-                prompt: The prompt to use for the plugin. Should include a keyword obtained from get_plugin_list().
+                plugin_name: The name of the plugin to execute. Must be obtained from get_plugin_list() or get_device_and_scene_list().
+                prompt: The prompt to use for the plugin. Should include a keyword obtained from get_plugin_list() or get_device_and_scene_list().
             Returns:
                 The response from the plugin.
             """
@@ -264,12 +336,12 @@ class VoiceControl(VoiceRecognizer):
                         Contains:
                             - custom_devices (list[str]): Names of custom devices.
                             - plugin_name (str): The name of the plugin.
-                            - devices (list[str]): Names of devices associated with the plugin.
+                            - devices (list[dict]): Names of devices associated with the plugin.
                     - scenes (list[dict]):
                         Contains:
                             - custom_scenes (list[str]): Names of custom scenes.
                             - plugin_name (str): The name of the plugin.
-                            - scenes (list[str]): Names of scenes associated with the plugin.
+                            - scenes (list[dict]): Names of scenes associated with the plugin.
             """
             devices = []
             plugin_devices = []
@@ -281,33 +353,38 @@ class VoiceControl(VoiceRecognizer):
             for plugin in self.plugins:
                 if plugin.devices:
                     plugin_devices.append(
-                        {"plugin_name": plugin.name, "devices": plugin.devices})
+                        {"plugin_name": plugin.name, "devices": [{"name": d.device_name, "type": d.device_type, "room": d.room} for d in plugin.devices]})
                 if plugin.scenes:
                     plugin_scenes.append(
-                        {"plugin_name": plugin.name, "scenes": plugin.scenes})
+                        {"plugin_name": plugin.name, "scenes": [{"name": s.scene_name, "room": s.room} for s in plugin.scenes]})
             devices.extend(plugin_devices)
             scenes.extend(plugin_scenes)
             return {"devices": devices, "scenes": scenes}
 
-        def plugin_device_control(plugin_name: str, device_name: str, action: str) -> str:
+        def plugin_device_control(plugin_name: str, device_name: str, action: str, value: int = 0) -> str:
             """
             Control plugin devices (differs from custom_device_control).
 
             Args:
                 plugin_name (str): The name of the plugin to execute. Must be obtained from get_device_and_scene_list().
                 device_name (str): The name of the device to control. Must be obtained from get_device_and_scene_list().
-                action (str): The action to perform ("turnOn" or "turnOff").
+                action (str): The action to perform ("turnOn", "turnOff", "play", "pause", "stop", "next", "previous", "up", "down", "set_count", "set_speed", "set_mode").
+                value (int, optional): The integer value to apply when the action requires a parameter.
             Returns:
                 str: A message indicating the action performed.
+            Note:
+                This function is intended only for simple device controls".
+                For other types of operations, use `execute_plugin()`.
             """
             print(f"{device_name}を{action}します")
             for plugin in self.plugins:
                 if plugin.name == plugin_name:
-                    command = plugin.device_control(device_name, action)
+                    command = self.parse_and_control_device(
+                        VoiceCommand(f"{device_name} {action} {value}"), plugin.devices, [])
                     if command.reply_text != "":
                         return command.reply_text
                     else:
-                        return "The device could not be controlled. Please check the device name and try again."
+                        return "The device could not be controlled. Please check the device name and try again. You can also try using `execute_plugin()`."
             else:
                 return "Plugin not found"
 
@@ -319,11 +396,15 @@ class VoiceControl(VoiceRecognizer):
                 scene_name (str): The name of the scene to control. Must be obtained from get_device_and_scene_list().
             Returns:
                 str: A message indicating the action performed.
+            Note:
+                This function is intended only for simple scene activations.
+                For other types of operations, use `execute_plugin()`.
             """
             print(f"{scene_name}を実行します")
             for plugin in self.plugins:
                 if plugin.name == plugin_name:
-                    command = plugin.scene_control(scene_name)
+                    command = self.parse_and_control_device(
+                        VoiceCommand(f"{scene_name}を実行"), [], plugin.scenes)
                     if command.reply_text != "":
                         return command.reply_text
                     else:
@@ -527,8 +608,11 @@ def run():
 
 
 if __name__ == "__main__":
-    from release_checker import ReleaseChecker
-    checker = ReleaseChecker()
-    if checker.check_update():
-        checker.cui()
+    try:
+        from release_checker import ReleaseChecker
+        checker = ReleaseChecker()
+        if checker.check_update():
+            checker.cui()
+    except:
+        pass
     run()

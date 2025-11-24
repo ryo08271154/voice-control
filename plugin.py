@@ -90,24 +90,130 @@ class NotificationManager:
             plugin_name, message, message_type))
 
 
+class Device:
+    def __init__(self, device_name: str, device_type: str = "unknown", room: str = "unknown", on_func=None, off_func=None, play_func=None, pause_func=None, stop_func=None, next_func=None, previous_func=None, up_func=None, down_func=None, set_count_func=None, set_speed_func=None, set_mode_func=None):
+        self.device_name = device_name
+        self.device_type = device_type
+        self.status = {"power_state": False, "count": 0, "speed": 0, "mode": 0}
+        self.room = room
+        self._callbacks = {
+            'on': on_func,
+            'off': off_func,
+            'play': play_func,
+            'pause': pause_func,
+            'stop': stop_func,
+            'next': next_func,
+            'previous': previous_func,
+            'up': up_func,
+            'down': down_func,
+            'set_count': set_count_func,
+            'set_speed': set_speed_func,
+            'set_mode': set_mode_func
+        }
+
+    def _execute_callback(self, action: str, *args, **kwargs):
+        func = self._callbacks.get(action)
+        if func:
+            return func(self, *args, **kwargs)
+        else:
+            return False
+
+    def turn_on(self):
+        self.status["power_state"] = True
+        return self._execute_callback("on")
+
+    def turn_off(self):
+        self.status["power_state"] = False
+        return self._execute_callback("off")
+
+    def play(self):
+        return self._execute_callback("play")
+
+    def pause(self):
+        return self._execute_callback("pause")
+
+    def stop(self):
+        return self._execute_callback("stop")
+
+    def next(self):
+        return self._execute_callback("next")
+
+    def previous(self):
+        return self._execute_callback("previous")
+
+    def up(self, amount: int = 1):
+        self.status["count"] += amount
+        return self._execute_callback("up", amount)
+
+    def down(self, amount: int = 1):
+        self.status["count"] -= amount
+        return self._execute_callback("down", amount)
+
+    def set_count(self, count: int):
+        self.status["count"] = count
+        return self._execute_callback("set_count", count)
+
+    def set_speed(self, speed: int):
+        self.status["speed"] = speed
+        return self._execute_callback("set_speed", speed)
+
+    def set_mode(self, mode: int):
+        self.status["mode"] = mode
+        return self._execute_callback("set_mode", mode)
+
+    def get_status(self) -> dict:
+        return self.status
+
+    def set_status(self, key: str, value: any):
+        self.status[key] = value
+        return self.status
+
+    def __str__(self):
+        return self.device_name
+
+    def __repr__(self):
+        return self.device_name
+
+
+class Scene:
+    def __init__(self, scene_name: str, room: str = "unknown", execute_func=None):
+        self.scene_name = scene_name
+        self.room = room
+        self._execute_func = execute_func
+
+    def execute(self):
+        if self._execute_func:
+            return self._execute_func(self)
+        else:
+            return False
+
+    def __str__(self):
+        return self.scene_name
+
+    def __repr__(self):
+        return self.scene_name
+
+
 class BasePlugin(NotificationManager):
     name: str = ""
     description: str = ""
     version: str = "v1.0.0"
-    is_plugin_mode = False
+    sample_commands: list = []
     keywords: list = []
-    devices: list = []
-    scenes: list = []
     required_config: list = []
     config_dir: str = os.path.join(dir_name, "config")
 
     def __init__(self, voice_control=None):
         super().__init__()
+        self.is_plugin_mode = False
+        self.devices: list = []
+        self.scenes: list = []
         self.voice_control = voice_control
         if not self.voice_control:
             return
         self.genai_client = genai.Client(
             api_key=self.voice_control.config["genai"]["apikey"])
+
     def get_keywords(self) -> list:
         return self.keywords
 
@@ -120,10 +226,14 @@ class BasePlugin(NotificationManager):
     def execute(self, command: VoiceCommand) -> VoiceCommand:
         return command
 
-    def command(self, text: str, action_type: str = "plugin_command") -> VoiceCommand:
-        command = self.voice_control.command(
-            VoiceCommand(text, action_type=action_type))
-        return command
+    def command(self, text: str) -> list:
+        plugin_mode = self.get_plugin_mode()
+        if self.is_plugin_mode:
+            self.set_plugin_mode(False)
+        commands = self.voice_control.command(text)
+        if plugin_mode:
+            self.set_plugin_mode(True)
+        return commands
 
     def ask_gemini(self, contents: str, config: genai.types.GenerateContentConfig = genai.types.GenerateContentConfig(), *args, **kwargs) -> genai.types.GenerateContentResponse:
         async def generate_content(contents: str, config: genai.types.GenerateContentConfig, *args, **kwargs) -> genai.types.GenerateContentResponse:
@@ -144,17 +254,6 @@ class BasePlugin(NotificationManager):
             contents, config, *args, **kwargs))
         return response
 
-    def device_control(self, device_name: str, action: str) -> VoiceCommand:
-        action_text = action_text = "オン" if action == "turnOn" else "オフ" if action == "turnOff" else ""
-        command = self.execute(VoiceCommand(
-            f"{device_name} {action_text}", action_type="device_control"))
-        return command
-
-    def scene_control(self, scene_name: str) -> VoiceCommand:
-        command = self.execute(VoiceCommand(
-            f"{scene_name} 実行", action_type="scene_control"))
-        return command
-
     def get_plugin_mode(self) -> bool:
         return self.is_plugin_mode
 
@@ -164,3 +263,10 @@ class BasePlugin(NotificationManager):
     def add_notification(self, message: str, message_type="info", timestamp: float = time.time()):
         plugin_name = self.name
         return super().add_notification(plugin_name, message, message_type, timestamp)
+
+    def add_device(self, device_name: str, device_type: str = "unknown", room: str = "unknown", on_func=None, off_func=None, play_func=None, pause_func=None, stop_func=None, next_func=None, previous_func=None, up_func=None, down_func=None, set_count_func=None, set_speed_func=None, set_mode_func=None) -> None:
+        self.devices.append(Device(device_name, device_type, room, on_func, off_func,
+                            play_func, pause_func, stop_func, next_func, previous_func, up_func, down_func, set_count_func, set_speed_func, set_mode_func))
+
+    def add_scene(self, scene_name: str, room: str = "unknown", excute_func=None) -> None:
+        self.scenes.append(Scene(scene_name, room, excute_func))

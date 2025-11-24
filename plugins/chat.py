@@ -2,12 +2,14 @@ from plugin import BasePlugin
 from google.genai.types import GenerateContentConfig
 import os
 import json
+import flet as ft
 
 
 class ChatPlugin(BasePlugin):
     name = "Chat"
     description = "会話する"
     keywords = ["会話", "チャット", "終了", "chat", "end"]
+    sample_commands = ["会話を始めて", "チャットモードにして", "作り方を教えて", "やり方を教えて"]
 
     rules = """
     Rules:
@@ -18,6 +20,14 @@ class ChatPlugin(BasePlugin):
     - Call change_state() to update your status
     - Call get_memory() to retrieve memories related to the conversation
     - Call save_memory() to store information from the conversation
+    - Call command() when the user wants to perform an action or request information to:
+        - Control devices (e.g. lights, TVs, ACs)
+        - Execute scenes or routines
+        - Access system functions
+        - Retrieve informational data (e.g. current time, weather, search, calendar events, etc.)
+    - Call explain_step_by_step() to explain a process or topic step-by-step
+    - When using step-by-step(), do not respond with text that is exactly the same as the step_description or step_explanation. Always rephrase it concisely.
+    - Call end_step_by_step() to end the step-by-step explanation
     - Respond to the user in a friendly and approachable manner
     - Keep the conversation going by expanding topics or asking questions
     - Do not use line breaks
@@ -33,6 +43,12 @@ class ChatPlugin(BasePlugin):
         "familiarity": 0.0,       # ユーザーとの親しみ度
         "curiosity": 50.0,        # 0〜100
     }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.chat_history = []  # 会話履歴を保存するリスト
+        self.step_by_step_view = None
+        self.is_step_by_step_mode = False
 
     def change_state(self, mood: str, like_level: float, energy: float, trust: float, stress: float, happiness: float, familiarity: float, curiosity: float) -> dict:
         """
@@ -101,10 +117,61 @@ class ChatPlugin(BasePlugin):
         self.is_plugin_mode = False
         print("Chat ended.")
 
+    def explain_step_by_step(self, step_number: int, step_title: str, step_description: str, step_explanation: str, max_steps: int) -> None:
+        """
+        Explain a process or topic step-by-step.
+        Args:
+            step_number (int): The number of the current step.
+            step_title (str): The title of the step, without including the step number.
+            step_description (str): A brief description of what the step entails.
+            step_explanation (str): A detailed and clear explanation of the step.
+                The explanation should:
+                - Be as detailed and clear as possible.
+                - Include what to do, why it is done, and key points or cautions.
+                - Use simple language and structure (e.g., lists, examples).
+                - Preserve formatting such as line breaks for readability.
+            max_steps (int): The total number of steps in the process.
+        """
+        self.is_step_by_step_mode = True
+        self.step_by_step_view = ft.Container(
+            content=ft.Column(
+                controls=[
+                    ft.ProgressBar(value=step_number/max_steps, color=ft.Colors.GREEN,
+                                   bgcolor=ft.Colors.RED, height=15, expand=True),
+                    ft.Text(f"ステップ {step_number}: {step_title}",
+                            color=ft.Colors.WHITE, size=100, weight=ft.FontWeight.BOLD),
+                    ft.Text(step_description, color=ft.Colors.WHITE, size=50),
+                    ft.Text(step_explanation, color=ft.Colors.WHITE, size=30),
+                ],
+                spacing=10,
+                scroll=ft.ScrollMode.AUTO,
+                expand=True
+            ),
+            padding=10,
+            margin=ft.margin.only(bottom=10),
+            border_radius=5,
+            expand=True
+        )
+
+    def end_step_by_step(self) -> None:
+        """
+        End the step-by-step explanation.
+        """
+        self.step_by_step_view = None
+        self.is_step_by_step_mode = False
+
+    def command(self, text: str) -> str:
+        """
+        Execute a command.
+        Retrieve informational data (e.g. current time, weather, calendar events, etc.)
+        """
+        commands = super().command(text)
+        return "".join([command.reply_text for command in commands])
+
     def send_message(self, message):
         response = self.chat.send_message(message, GenerateContentConfig(
-            tools=[self.change_state, self.get_memory,
-                   self.save_memory, self.end_chat],
+            tools=[self.command, self.change_state, self.get_memory, self.save_memory,
+                   self.end_chat, self.explain_step_by_step, self.end_step_by_step],
             system_instruction=f"{self.state}\n{self.get_memory()[-3:]}\n{self.system_instruction}"))
         return response
 
@@ -137,7 +204,72 @@ class ChatPlugin(BasePlugin):
                 model=self.voice_control.config["genai"]["model_name"])
             command.reply_text = "会話モードを開始します。"
             self.is_plugin_mode = True
+            self.chat_history = []  # 会話履歴をクリア
+            return super().execute(command)
+        if command.user_input_text in ["えーと", "えっと", "えっとー", "えー", "え", "あ", "あー"] or len(command.user_input_text) <= 3:
             return super().execute(command)
         response = self.send_message(command.user_input_text)
-        command.reply_text = response.text
+        command.reply_text = response.text if response.text else "応答がありませんでした。"
+        if self.is_step_by_step_mode:
+            command.flet_view = self.step_by_step_view
+            return super().execute(command)
+        # 会話履歴に追加
+        self.chat_history.append({
+            "user": command.user_input_text,
+            "assistant": command.reply_text
+        })
+
+        # 会話履歴から全てのカードを生成
+        chat_cards = []
+        for chat in self.chat_history:
+            chat_cards.extend([
+                # ユーザーの発言（右側）
+                ft.Container(
+                    content=ft.Container(
+                        content=ft.Text(
+                            chat["user"],
+                            color=ft.Colors.WHITE,
+                            size=14,
+                            text_align=ft.TextAlign.RIGHT
+                        ),
+                        padding=10,
+                        bgcolor=ft.Colors.GREEN,
+                        border_radius=10
+                    ),
+                    margin=ft.margin.only(bottom=10, left=100),
+                    alignment=ft.alignment.center_right,
+                ),
+                # アシスタントの発言（左側）
+                ft.Container(
+                    content=ft.Container(
+                        content=ft.Text(
+                            chat["assistant"],
+                            color=ft.Colors.WHITE,
+                            size=14
+                        ),
+                        padding=10,
+                        bgcolor=ft.Colors.BLUE,
+                        border_radius=10,
+                    ),
+                    margin=ft.margin.only(right=100, bottom=10),
+                    alignment=ft.alignment.center_left,
+                )
+            ])
+
+        command.flet_view = ft.Column(
+            controls=[
+                ft.Container(
+                    content=ft.Column(
+                        controls=chat_cards,
+                        scroll=ft.ScrollMode.AUTO,
+                        auto_scroll=True,
+                        spacing=0
+                    ),
+                    padding=10
+                )
+            ],
+            scroll=ft.ScrollMode.AUTO,
+            auto_scroll=True,
+            expand=True
+        )
         return super().execute(command)
