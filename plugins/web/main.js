@@ -63,7 +63,7 @@ const init = () => {
   });
 
   loader.load(
-    "models/VRM1_Constraint_Twist_Sample.vrm",
+    "models/model.vrm",
     (gltf) => {
       const vrm = gltf.userData.vrm;
       currentVrm = vrm;
