@@ -10,8 +10,8 @@ import requests
 import os
 import datetime
 import re
-dir_name = os.path.dirname(__file__)
-dir_name = os.path.abspath(os.path.join(dir_name, os.pardir))
+from app_paths import get_app_dir
+dir_name = get_app_dir()
 
 
 class Switchbot:

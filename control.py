@@ -4,6 +4,7 @@ import datetime
 import asyncio
 import voice_control
 import os
+from app_paths import get_app_dir
 import threading
 import time
 import pychromecast
@@ -270,7 +271,7 @@ class VoiceControlUI:
         """音声コントロールのセットアップ"""
         try:
             import json
-            dir_name = os.path.dirname(__file__)
+            dir_name = get_app_dir()
 
             config_files = {
                 "custom_scenes": "custom_scenes.json",

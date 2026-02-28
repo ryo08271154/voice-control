@@ -1,10 +1,12 @@
 from plugin import PluginManager
 import json
 import os
-dir_name = os.path.dirname(__file__)
+from app_paths import get_app_dir, ensure_config_dir
+dir_name = get_app_dir()
 
 
 def setup():
+    ensure_config_dir()
     custom_devices = {"deviceList": []}
     custom_scenes = {"sceneList": []}
     custom_routines = {"routineList": []}

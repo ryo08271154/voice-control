@@ -127,6 +127,27 @@ python voice_control.py
 python control.py
 ```
 
+### Windows向けEXEを作成して実行
+
+1. 依存関係をインストールします。
+
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+2. EXEをビルドします。
+
+   ```bash
+   python build_exe.py
+   ```
+
+3. `dist/` 配下に `voice-control-gui` と `voice-control-cui` が作成されます。
+   - GUI: `dist/voice-control-gui/voice-control-gui.exe`
+   - CUI: `dist/voice-control-cui/voice-control-cui.exe`
+
+4. 初回設定は `edit_config.py` で作成した `config` フォルダを、EXEと同じ階層に配置してください。
+
+
 ### 音声コマンド例
 
 以下は、音声コマンドの例です。このコマンド以外にもさまざまなコマンドが使えます。

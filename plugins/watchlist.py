@@ -3,6 +3,7 @@ import flet as ft
 import requests
 import pickle
 from bs4 import BeautifulSoup
+from app_paths import ensure_config_dir
 
 
 class WatchList:
@@ -14,14 +15,14 @@ class WatchList:
 
     def load_cookies(self):
         try:
-            with open("config/watchlist_cookies.pkl", "rb") as f:
+            with open(f"{ensure_config_dir()}/watchlist_cookies.pkl", "rb") as f:
                 cookies = pickle.load(f)
         except FileNotFoundError:
             cookies = {}
         return cookies
 
     def save_cookies(self, cookies):
-        with open("config/watchlist_cookies.pkl", "wb") as f:
+        with open(f"{ensure_config_dir()}/watchlist_cookies.pkl", "wb") as f:
             pickle.dump(cookies, f)
 
     def account_login(self, username, password):

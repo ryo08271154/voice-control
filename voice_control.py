@@ -17,7 +17,8 @@ import fastmcp
 from faster_whisper import WhisperModel
 from plugin import PluginManager
 from commands import VoiceCommand
-dir_name = os.path.dirname(__file__)
+from app_paths import get_app_dir
+dir_name = get_app_dir()
 
 
 class VoiceRecognizer:

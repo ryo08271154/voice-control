@@ -4,9 +4,12 @@ import inspect
 import os
 import json
 import asyncio
+import pkgutil
+import plugins
 from commands import VoiceCommand
 import time
-dir_name = os.path.dirname(os.path.abspath(__file__))
+from app_paths import get_app_dir
+dir_name = get_app_dir()
 
 
 class PluginManager:
@@ -16,41 +19,39 @@ class PluginManager:
         self.voice_control = voice_control
 
     def get_plugins(self):
-        plugins = []
-        for filename in os.listdir(os.path.join(dir_name, self.plugin_dir)):
+        loaded_plugins = []
+        for module_info in pkgutil.iter_modules(plugins.__path__):
             try:
-                if filename.endswith(".py") and filename != "__init__.py":
-                    module_name = f"plugins.{filename[:-3]}"
-                    module = importlib.import_module(module_name)
-                    for name, obj in inspect.getmembers(module, inspect.isclass):
-                        if issubclass(obj, BasePlugin) and obj != BasePlugin:
-                            plugins.append(obj())
+                module_name = f"plugins.{module_info.name}"
+                module = importlib.import_module(module_name)
+                for name, obj in inspect.getmembers(module, inspect.isclass):
+                    if issubclass(obj, BasePlugin) and obj != BasePlugin:
+                        loaded_plugins.append(obj())
             except OSError as e:
                 print(f"プラグインファイルの読み込み中にエラーが発生しました: {e}")
             except Exception as e:
                 print(f"プラグインの読み込みにエラーが発生しました: {e}")
-        return plugins
+        return loaded_plugins
 
     def load_plugins(self):
-        plugins = []
+        loaded_plugins = []
         enabled_plugins = json.load(
             open(os.path.join(dir_name, "config/config.json"))).get("plugins", {})
-        for filename in os.listdir(os.path.join(dir_name, self.plugin_dir)):
+        for module_info in pkgutil.iter_modules(plugins.__path__):
             try:
-                if filename.endswith(".py") and filename != "__init__.py":
-                    module_name = f"plugins.{filename[:-3]}"
-                    module = importlib.import_module(module_name)
-                    for name, cls in inspect.getmembers(module, inspect.isclass):
-                        if issubclass(cls, BasePlugin) and cls != BasePlugin:
-                            obj = cls(self.voice_control)
-                            if obj.name in enabled_plugins:
-                                plugins.append(obj)
+                module_name = f"plugins.{module_info.name}"
+                module = importlib.import_module(module_name)
+                for name, cls in inspect.getmembers(module, inspect.isclass):
+                    if issubclass(cls, BasePlugin) and cls != BasePlugin:
+                        obj = cls(self.voice_control)
+                        if obj.name in enabled_plugins:
+                            loaded_plugins.append(obj)
             except OSError as e:
                 print(f"プラグインファイルの読み込み中にエラーが発生しました: {e}")
             except Exception as e:
                 print(f"プラグインの読み込みにエラーが発生しました: {e}")
-        self.plugins = plugins
-        return plugins
+        self.plugins = loaded_plugins
+        return loaded_plugins
 
 
 class Notification:
